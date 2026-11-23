@@ -1,6 +1,6 @@
 # Runtime
-fastapi==0.162.7
-pydantic==2.14.3
+fastapi==0.165.0
+pydantic==2.14.4
 uvicorn==0.54.0
 websockets==17.4
 # Testing
