@@ -29,7 +29,7 @@ from . import __version__, accounts, actions, alerts, assistant, dependabot, net
 from .config import MonitorSettings, load_settings
 from .dependencies import DependencyCheck, check_dependencies
 from .handoff import build_handoff
-from .models import Incident, IncidentEvent, IncidentLink, ServiceConfig, ServiceState, Status, WorkerState
+from .models import CheckRecord, Incident, IncidentEvent, IncidentLink, ServiceConfig, ServiceState, Status, WorkerState
 from .storage import open_storage
 from .storage.base import Storage
 from .uptime_calc import WINDOWS, compute_uptime, latency_series, needed_since, uptime_bars
@@ -91,6 +91,7 @@ class ServiceOverview(BaseModel):
     current: CurrentStatus
     uptime: dict[str, Any]
     bars: list[dict[str, Any]] | None = None
+    latest_check: CheckRecord | None = None
 
 
 RecoveryStatus = Literal["not_needed", "waiting", "reconciling", "needs_review", "complete"]
@@ -428,10 +429,12 @@ def create_app(
         stats = compute_uptime(samples, window, now, storage.first_check_at(service.id))
         return stats, (uptime_bars(samples, window, now) if bars else None)
 
-    def overview(service: ServiceConfig, window: str, now: datetime, *, bars: bool) -> ServiceOverview:
+    def overview(service: ServiceConfig, window: str, now: datetime, *, bars: bool,
+                 include_latest: bool = False) -> ServiceOverview:
         stats, b = uptime(service, window, now, bars=bars)
+        checks = storage.list_checks(service.id, limit=1) if include_latest else []
         return ServiceOverview(id=service.id, name=service.name, app=service.app, description=service.description,
-                               current=current(service, now), uptime=stats, bars=b)
+                               current=current(service, now), uptime=stats, bars=b, latest_check=checks[0] if checks else None)
 
     def incident_out(incident: Incident, now: datetime, *, related: bool = False) -> IncidentOut:
         related_ci = []
@@ -778,7 +781,7 @@ def create_app(
     @app.get("/api/v1/summary", response_model=Envelope[Summary])
     def summary(window: Window = "24h", ws: str = Depends(workspace)):
         now = clock()
-        overviews = [overview(s, window, now, bars=True) for s in services(ws)]
+        overviews = [overview(s, window, now, bars=True, include_latest=True) for s in services(ws)]
         statuses = [o.current.status for o in overviews]
         if "down" in statuses:
             overall = {"status": "down", "label": "Major outage"}

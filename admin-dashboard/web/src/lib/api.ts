@@ -54,7 +54,7 @@ export type Current = {
   open_incident_id: string | null;
 };
 
-export type ServiceOverview = { id: string; name: string; app: string; description: string; current: Current; uptime: UptimeStats; bars: Bar[] | null };
+export type ServiceOverview = { id: string; name: string; app: string; description: string; current: Current; uptime: UptimeStats; bars: Bar[] | null; latest_check: Check | null };
 
 export type IncidentEvent = { at: string; type: string; status: Status | null; message: string; check_id: string | null };
 
