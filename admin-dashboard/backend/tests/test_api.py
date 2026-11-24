@@ -124,6 +124,21 @@ def test_service_detail_checks_latency_and_incidents(env):
     assert c.get("/api/v1/services/nope").status_code == 404
 
 
+def test_service_incident_history_survives_newer_incidents_elsewhere(env):
+    env["apps"].mode["novaconnect"] = "backend_down"
+    env["tick"]()
+    storage = env["storage"]
+    outage = storage.get_open_incident("novaconnect")
+    for n in range(200):
+        newer = outage.model_copy(update={"id": f"incident-{n}", "service_id": "novamart",
+                                         "started_at": env["clock"]()})
+        assert storage.create_incident(newer)
+        storage.save_incident(newer.model_copy(update={"state": "resolved", "resolved_at": env["clock"]()}))
+
+    data = env["client"]().get("/api/v1/incidents", params={"service_id": "novaconnect", "limit": 1}).json()["data"]
+    assert [item["id"] for item in data] == [outage.id]
+
+
 def test_incident_detail_and_agent_handoff_evidence(env):
     env["apps"].mode["novamart"] = "functional_bug"
     env["tick"]()
