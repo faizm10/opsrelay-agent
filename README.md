@@ -27,7 +27,7 @@ Live dashboard: https://opsrelay-dashboard.vercel.app
 | [`agents/`](agents/README.md) | CI failure monitor, diagnosis and repair pipeline, MongoDB workflow state, and GitHub PR publisher | CLI and worker |
 | [`.github/workflows/`](.github/workflows/) | CI for every component, plus the 5-minute scheduled uptime checks | GitHub Actions |
 
-The apps run independently. NovaMart stores demo orders in a local JSON file; NovaConnect stores demo messages in SQLite. The uptime service uses local SQLite by default and can use MongoDB when configured. The agents use MongoDB for incident state and repair memory.
+The apps run independently. NovaMart stores demo orders in a local JSON file; NovaConnect stores demo messages in SQLite. The uptime service uses local SQLite by default and can use MongoDB when configured. The agents use MongoDB for incident state and repair memory. See the [database migration guide](docs/database-migration.md) to copy MongoDB data to another project, Supabase or Neon.
 
 ## Run the demo locally
 
