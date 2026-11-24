@@ -182,7 +182,7 @@ recovery.recovered  # True only if a *fresh* probe id was confirmed delivered
 ```bash
 uv venv --python 3.12 agents/.venv            # or: python3.12 -m venv agents/.venv
 uv pip install --python agents/.venv/bin/python -r agents/requirements.txt
-export OPENAI_API_KEY=...                     # optional for tests; required for live use
+export OPENAI_API_KEY=...                     # required for live model calls
 export OPENAI_MODEL=gpt-4.1-mini              # optional, this is the default
 ```
 
@@ -214,7 +214,11 @@ agents/.venv/bin/python -m pytest agents/tests/test_shopping_repair.py::test_sho
 ```
 
 These tests use a stub model. `test_live_openai.py` runs the same regression
-against the real model and is skipped unless `OPENAI_API_KEY` is set.
+against the real model. Set a valid `OPENAI_API_KEY` and opt in explicitly:
+
+```bash
+OPSRELAY_RUN_LIVE_TESTS=1 agents/.venv/bin/python -m pytest agents/tests/test_live_openai.py -q
+```
 
 ## Interface for the orchestrator
 

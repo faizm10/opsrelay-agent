@@ -50,6 +50,8 @@ def test_independent_statuses_and_real_uptime(env):
     assert by_id["novamart"]["current"]["status"] == "degraded"
     assert by_id["novaconnect"]["current"]["status"] == "operational"
     assert data["overall"] == {"status": "degraded", "label": "Partial degradation", "affected_services": ["NovaMart"]}
+    assert by_id["novamart"]["latest_check"]["status"] == "degraded"
+    assert by_id["novaconnect"]["latest_check"]["status"] == "operational"
     up = by_id["novamart"]["uptime"]
     assert up["check_count"] == 4 and up["failed_check_count"] == 2
     assert up["uptime_pct"] == pytest.approx(50.0, abs=0.01), "computed from stored checks, not hardcoded"

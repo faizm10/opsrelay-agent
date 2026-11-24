@@ -1,4 +1,4 @@
-"""Live model check. Skipped unless OPENAI_API_KEY is set."""
+"""Live model check. Runs only when explicitly enabled."""
 
 import os
 
@@ -8,7 +8,10 @@ from agents import OpenAIStructuredLLM, repair_ci_failure
 
 from .support import CART_PATH
 
-pytestmark = pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
+pytestmark = pytest.mark.skipif(
+    os.environ.get("OPSRELAY_RUN_LIVE_TESTS") != "1",
+    reason="Set OPSRELAY_RUN_LIVE_TESTS=1 to run the live OpenAI test",
+)
 
 
 def test_live_model_repairs_shopping_discount(shopping):

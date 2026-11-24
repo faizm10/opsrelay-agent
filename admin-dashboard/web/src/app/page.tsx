@@ -7,7 +7,7 @@ import { STATES } from "@/components/agent-activity";
 import { IncidentList } from "@/components/incidents";
 import { Onboarding } from "@/components/onboarding";
 import { ErrorPanel, Shell, Skeleton, StatusText, WindowTabs } from "@/components/ui";
-import { type AgentActivity, type Check, type RepoOverview, STATUS_POLL_MS, type ServiceOverview, type Summary, type Window, usePoll } from "@/lib/api";
+import { type AgentActivity, type RepoOverview, STATUS_POLL_MS, type ServiceOverview, type Summary, type Window, usePoll } from "@/lib/api";
 import { ago, clock, ms, pct, useNow } from "@/lib/format";
 import { checkFacts } from "@/lib/phase";
 
@@ -15,9 +15,7 @@ const COLS = "lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_7.5rem_minma
 
 function ServiceRow({ s, window }: { s: ServiceOverview; window: Window }) {
   const now = useNow();
-  // The latest check holds each layer separately: the website can be up while checkout fails.
-  const latest = usePoll<Check[]>(`/api/v1/services/${s.id}/checks?limit=1`, STATUS_POLL_MS);
-  const facts = checkFacts(s.id, latest.data?.[0]);
+  const facts = checkFacts(s.id, s.latest_check);
   return (
     <li className={`border-t border-line px-4 py-4 first:border-t-0 sm:px-5 ${COLS} lg:items-center`}>
       <div className="min-w-0">
@@ -32,7 +30,7 @@ function ServiceRow({ s, window }: { s: ServiceOverview; window: Window }) {
         </div>
       </div>
       <ul className="mt-2 space-y-0.5 text-xs text-muted lg:mt-0" aria-label={`${s.name} latest check`}>
-        {facts.length === 0 ? <li className="text-faint">{latest.error ? "Latest check unavailable" : "No check recorded yet"}</li>
+        {facts.length === 0 ? <li className="text-faint">No check recorded yet</li>
           : facts.map((f) => (
             <li key={f.label} className="min-w-0">
               <StatusText status={f.status} label={f.label} className={f.status === "operational" ? "" : "text-ink"} />
