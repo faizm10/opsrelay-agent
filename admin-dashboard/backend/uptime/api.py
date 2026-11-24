@@ -856,10 +856,12 @@ def create_app(
     def list_incidents(state: Literal["open", "resolved", "all"] = "all", service_id: str | None = None,
                        limit: int = Query(default=50, ge=1, le=200), ws: str = Depends(workspace)):
         now = clock()
-        if service_id is not None:
+        incident_state = None if state == "all" else state
+        if service_id is None:
+            items = incidents(ws, state=incident_state, limit=limit)
+        else:
             service_or_404(service_id, ws)
-        items = [i for i in incidents(ws, state=None if state == "all" else state, limit=200 if service_id else limit)
-                 if service_id in (None, i.service_id)][:limit]
+            items = storage.list_incidents(service_id=service_id, state=incident_state, limit=limit)
         return ok([incident_out(i, now) for i in items])
 
     @app.get("/api/v1/incidents/{incident_id}/walkthrough", response_model=Envelope[dict[str, Any]])
