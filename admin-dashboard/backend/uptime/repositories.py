@@ -142,6 +142,8 @@ def set_agent(storage: Storage, ws: str, service_id: str, settings: dict) -> dic
         if mapping["repo"].lower() != conf["worker_repo"].lower():
             raise RepoError(409, f"The shared worker investigates {conf['worker_repo']} only; "
                                  f"{mapping['repo']} needs its own worker and repair config; choose Diagnose instead.")
+        if not conf["apps"]:
+            raise RepoError(409, "No code areas are set up for repair in agents/apps.toml; choose Diagnose instead.")
         if settings["app"] not in conf["apps"]:
             raise RepoError(422, f"Choose which code area the agent repairs: {', '.join(conf['apps'])}.")
     agent = {"enabled": settings["enabled"], "mode": settings["mode"], "app": settings["app"]}
