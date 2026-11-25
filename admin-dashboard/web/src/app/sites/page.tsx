@@ -2,6 +2,7 @@
 
 import { Button } from "@astryxdesign/core/Button";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { ErrorPanel, PageHeader, Shell, Skeleton } from "@/components/ui";
 import { send, usePoll } from "@/lib/api";
@@ -15,6 +16,7 @@ export default function Sites() {
     if (!window.confirm(`Stop monitoring ${site.name}?`)) return;
     try {
       await send("DELETE", `/api/v1/sites/${encodeURIComponent(site.id)}`);
+      toast.success(`Stopped monitoring ${site.name}`);
       sites.reload();
     } catch (e) {
       setError((e as Error).message);
@@ -67,6 +69,7 @@ function AddSite({ onAdded }: { onAdded: () => void }) {
     setError("");
     try {
       await send("POST", "/api/v1/sites", { name: form.name, url: form.url, health_url: form.health_url || null });
+      toast.success(`Monitoring ${form.name}`);
       setForm({ name: "", url: "", health_url: "" });
       onAdded();
     } catch (err) {
