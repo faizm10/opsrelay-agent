@@ -60,3 +60,11 @@ def test_open_incidents_are_diagnosed_once_within_the_workspace_limit(monkeypatc
     db[diagnose.REQUESTS].insert_one({"_id": "ACT-1", "workspace_id": "w1"})
     assert diagnose.run(db, llm, str, httpx.MockTransport(github)) == 1
     assert db[diagnose.REQUESTS].count_documents({}) == 0 and diagnose.run(db, llm, str, httpx.MockTransport(github)) == 0
+
+    # A workspace's own OpenAI key is used instead of the shared model and is not held to the shared limit.
+    monkeypatch.setenv("OPSRELAY_DIAGNOSES_PER_DAY", "1")
+    db[diagnose.OPENAI].insert_one({"_id": "w1", "key": diagnose.SEALED + Fernet(key).encrypt(b"sk-own").decode()})
+    db[diagnose.UPTIME_INCIDENTS].insert_one({"_id": "INC-4", "service_id": "w1:shop", "state": "open", "title": "Shop slow", "summary": "p95 9s"})
+    own, keys = FakeLLM(), []
+    assert diagnose.run(db, llm, str, httpx.MockTransport(github), own_llm=lambda k: keys.append(k) or own) == 1
+    assert keys == ["sk-own"] and len(own.prompts) == 1 and len(llm.prompts) == 3

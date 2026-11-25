@@ -19,16 +19,17 @@ class StructuredLLM(Protocol):
 class OpenAIStructuredLLM:
     """Default model: OpenAI structured outputs through langchain-openai."""
 
-    def __init__(self, model: str | None = None, timeout: float = 60.0):
+    def __init__(self, model: str | None = None, timeout: float = 60.0, api_key: str | None = None):
         from langchain_openai import ChatOpenAI
 
-        if not os.environ.get("OPENAI_API_KEY"):
+        if not api_key and not os.environ.get("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY is not set; pass a StructuredLLM explicitly.")
         self._chat = ChatOpenAI(
             model=model or os.environ.get("OPENAI_MODEL", DEFAULT_MODEL),
             temperature=0,
             timeout=timeout,
             max_retries=2,
+            **({"api_key": api_key} if api_key else {}),
         )
 
     def generate(self, schema: type[T], system: str, user: str) -> T:

@@ -16,6 +16,7 @@ SECRET_FIELDS: dict[str, tuple[str, ...]] = {
     "vercel": ("token",),
     "sentry": ("client_secret",),
     "notify": ("url", "secret", "routing_key"),
+    "openai": ("key",),
 }
 PREFIX = "enc:v1:"
 # Local development and tests only; deployments must set their own key (see require_key).
@@ -54,7 +55,7 @@ def reseal_all(storage) -> int:
     """Re-save every workspace's credentials so plaintext from before encryption is sealed. Idempotent."""
     saved = 0
     for ws in storage.all_docs("workspaces"):
-        for kind in ("github", "vercel", "sentry"):
+        for kind in ("github", "vercel", "sentry", "openai"):
             if doc := storage.get_doc(kind, ws["id"]):
                 storage.put_doc(kind, ws["id"], doc)
                 saved += 1

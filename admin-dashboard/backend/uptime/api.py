@@ -254,6 +254,10 @@ class SentryProjectIn(BaseModel):
     project: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
 
 
+class OpenAIKeyIn(BaseModel):
+    key: str = Field(min_length=20, max_length=300)
+
+
 class VercelIn(BaseModel):
     token: str = Field(min_length=20, max_length=200)
     team_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
@@ -653,6 +657,22 @@ def create_app(
         except alerts.AlertError as exc:
             raise HTTPException(exc.status, str(exc)) from exc
 
+    @app.get("/api/v1/openai", response_model=Envelope[dict[str, Any]])
+    def openai_key(ws: str = Depends(workspace)):
+        return ok(assistant.key_status(storage, ws))
+
+    @app.put("/api/v1/openai", response_model=Envelope[dict[str, Any]])
+    async def openai_save(body: OpenAIKeyIn, ws: str = Depends(workspace)):
+        try:
+            return ok(await assistant.save_key(storage, ws, body.key, clock(), assistant_transport))
+        except assistant.AssistantError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+
+    @app.delete("/api/v1/openai", response_model=Envelope[dict[str, Any]])
+    def openai_remove(ws: str = Depends(workspace)):
+        storage.delete_doc("openai", ws)
+        return ok({"configured": False})
+
     @app.get("/api/v1/vercel", response_model=Envelope[dict[str, Any]])
     def vercel_connection(ws: str = Depends(workspace)):
         return ok(vercel.connection(storage, ws))
@@ -998,7 +1018,7 @@ def create_app(
         limit(f"assistant:{ws}", 30, 3600)  # each message is a paid model call
         try:
             reply = await assistant.answer(assistant_context(body.incident_id, clock(), ws), body.messages,
-                                           transport=assistant_transport)
+                                           transport=assistant_transport, key=(storage.get_doc("openai", ws) or {}).get("key"))
         except assistant.AssistantError as exc:
             raise HTTPException(exc.status, str(exc)) from exc
         return ok({"reply": reply})

@@ -82,6 +82,20 @@ def test_assistant_answers_from_status_without_source_locations(env, monkeypatch
     assert "backend/app" not in system and "private diff" not in system
 
 
+def test_workspace_openai_key_is_sealed_and_used_instead_of_the_shared_one(env, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-shared")
+    c, own = env["client"], "sk-own-workspace-key-0001"
+    assert c.put("/api/v1/openai", json={"key": own}).json()["data"] == {
+        "configured": True, "hint": "0001", "saved_at": c.get("/api/v1/openai").json()["data"]["saved_at"]}
+    assert own not in str(list(env["storage"].db["opsrelay_openai"].find()))  # sealed at rest
+    assert c.post("/api/v1/assistant/chat", json={"messages": [{"role": "user", "content": "hi"}]}).status_code == 200
+    assert [r.headers["authorization"] for r in env["requests"]] == [f"Bearer {own}"] * 2  # key check, then chat
+
+    assert c.delete("/api/v1/openai").json()["data"] == {"configured": False}
+    c.post("/api/v1/assistant/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert env["requests"][-1].headers["authorization"] == "Bearer sk-shared"
+
+
 def test_assistant_needs_an_api_key_and_valid_messages(env, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     c = env["client"]
