@@ -30,7 +30,7 @@ export function phase(i: Incident): Phase {
   if (i.investigation_route === "service_health") {
     return { label: "Service unreachable", next: "Check the process, deployment and network; this is not a code fix", tone: "crit" };
   }
-  return { label: "Awaiting investigation", next: "An investigation usually starts within a minute", tone: "neutral" };
+  return { label: "Waiting for the agent", next: "Nothing recorded yet. The agent only works on repositories switched on under Repositories", tone: "neutral" };
 }
 
 /** "Better Stack monitor down · Investigating" */
