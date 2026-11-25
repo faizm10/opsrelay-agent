@@ -5,8 +5,10 @@ incident on that service (failing GitHub Actions runs, downtime, failed deploys,
 diagnosis: evidence read with the workspace's own GitHub token (failed job logs, the failing commit,
 recent commits) is summarised by the model into a likely cause and a suggested fix, which the
 dashboard shows on the incident. Nothing is cloned or executed. The incident is diagnosed again when
-its summary changes or someone asks for a run from the incident page. Each workspace gets at most OPSRELAY_DIAGNOSES_PER_DAY (default 10) model calls
-per 24 hours, so one workspace's broken CI can't spend the shared budget.
+its summary changes or someone asks for a run from the incident page. Each workspace gets at most
+OPSRELAY_DIAGNOSES_PER_DAY (default 10) model calls per 24 hours, so one workspace's broken CI can't
+spend the shared budget. A workspace that saved its own OpenAI key on the Connectors page is
+diagnosed with that key and has no limit.
 """
 from __future__ import annotations
 
@@ -28,7 +30,8 @@ from agents.llm import StructuredLLM, untrusted_block
 
 log = logging.getLogger("agents.diagnose")
 # Dashboard collections (admin-dashboard/backend/uptime/storage/mongo.py); only DIAGNOSES and USAGE are written.
-REPOS, GITHUB, DIAGNOSES, USAGE = "opsrelay_repos", "opsrelay_github", "opsrelay_diagnoses", "opsrelay_diagnosis_usage"
+REPOS, GITHUB, OPENAI = "opsrelay_repos", "opsrelay_github", "opsrelay_openai"
+DIAGNOSES, USAGE = "opsrelay_diagnoses", "opsrelay_diagnosis_usage"
 REQUESTS = "opsrelay_diagnosis_requests"  # "Run the agent now" on the incident page
 UPTIME_INCIDENTS = "uptime_incidents"
 SEALED = "enc:v1:"  # admin-dashboard/backend/uptime/sealing.py
@@ -88,7 +91,8 @@ def evidence(gh: GitHubReader, mapping: dict, incident: dict) -> str:
     return "\n\n".join(parts)
 
 
-def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transport: httpx.BaseTransport | None = None) -> int:
+def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transport: httpx.BaseTransport | None = None,
+        own_llm: Callable[[str], StructuredLLM] | None = None) -> int:
     """Diagnose new or changed open incidents for diagnose-mode repositories. Returns the number written."""
     db = m.get_db(db)
     now = m.utcnow()
@@ -100,13 +104,15 @@ def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transpor
         if conn is None:
             continue
         gh = GitHubReader(open_token(conn["token"]), transport)
+        own = db[OPENAI].find_one({"_id": ws}) if own_llm else None
+        ws_llm = own_llm(open_token(own["key"])) if own else None
         prefix = mapping["_id"]
         for incident in db[UPTIME_INCIDENTS].find({"state": "open", "service_id": {"$regex": f"^{re.escape(prefix)}(#|$)"}}):
             fingerprint = hashlib.sha256(str(incident.get("summary")).encode()).hexdigest()[:16]
             requested = db[REQUESTS].find_one({"_id": incident["_id"]})
             if not requested and (db[DIAGNOSES].find_one({"_id": incident["_id"]}, {"fingerprint": 1}) or {}).get("fingerprint") == fingerprint:
                 continue
-            if db[USAGE].count_documents({"workspace_id": ws, "at": {"$gte": now - timedelta(days=1)}}) >= per_day:
+            if not ws_llm and db[USAGE].count_documents({"workspace_id": ws, "at": {"$gte": now - timedelta(days=1)}}) >= per_day:
                 log.info("diagnosis limit reached for workspace %s", ws)
                 break
             try:
@@ -114,8 +120,9 @@ def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transpor
             except httpx.HTTPError as exc:
                 log.warning("cannot read GitHub evidence for %s: %s", incident["_id"], exc)
                 continue
-            db[USAGE].insert_one({"workspace_id": ws, "incident_id": incident["_id"], "at": now})
-            result = llm.generate(Diagnosis, SYSTEM, text)
+            if not ws_llm:
+                db[USAGE].insert_one({"workspace_id": ws, "incident_id": incident["_id"], "at": now})
+            result = (ws_llm or llm).generate(Diagnosis, SYSTEM, text)
             db[DIAGNOSES].replace_one({"_id": incident["_id"]}, {
                 **result.model_dump(), "workspace_id": ws, "incident_id": incident["_id"], "repo": mapping["repo"],
                 "fingerprint": fingerprint, "created_at": now}, upsert=True)
@@ -130,4 +137,4 @@ if __name__ == "__main__":
     from agents.worker import redact
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
-    print(f"{run(m.get_db(), OpenAIStructuredLLM(), redact)} diagnosis(es) written")
+    print(f"{run(m.get_db(), OpenAIStructuredLLM(), redact, own_llm=lambda key: OpenAIStructuredLLM(api_key=key))} diagnosis(es) written")

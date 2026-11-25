@@ -294,7 +294,7 @@ class Worker:
         from agents.llm import OpenAIStructuredLLM
 
         self.llm = self.llm or OpenAIStructuredLLM()
-        return diagnose.run(self.orch.db, self.llm, redact)
+        return diagnose.run(self.orch.db, self.llm, redact, own_llm=lambda key: OpenAIStructuredLLM(api_key=key))
 
     def _intake(self) -> int:
         new = self.intake.poll()

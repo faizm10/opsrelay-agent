@@ -10,12 +10,16 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, Field
 
+from .storage.base import Storage, iso
+
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+MODELS_URL = "https://api.openai.com/v1/models"
 DEFAULT_MODEL = "gpt-4.1-mini"
 TIMEOUT_SECONDS = 60
 MAX_TURNS = 12
@@ -72,9 +76,31 @@ def plain_failures(evidence: dict[str, Any]) -> list[dict[str, Any]]:
     return failures
 
 
+def key_status(storage: Storage, ws: str) -> dict:
+    doc = storage.get_doc("openai", ws)
+    return {"configured": True, "hint": doc["hint"], "saved_at": doc["saved_at"]} if doc else {"configured": False}
+
+
+async def save_key(storage: Storage, ws: str, key: str, now: datetime,
+                   transport: httpx.AsyncBaseTransport | None = None) -> dict:
+    """A workspace's own OpenAI key, used instead of the shared one by the assistant and diagnose mode."""
+    key = key.strip()
+    try:
+        async with httpx.AsyncClient(timeout=15, transport=transport) as client:
+            response = await client.get(MODELS_URL, headers={"Authorization": f"Bearer {key}"})
+    except httpx.RequestError as exc:
+        raise AssistantError(502, "Cannot reach OpenAI. Try again in a moment.") from exc
+    if response.status_code in (401, 403):
+        raise AssistantError(422, "OpenAI rejected this key.")
+    if response.status_code != 200:
+        raise AssistantError(502, f"OpenAI answered HTTP {response.status_code}.")
+    storage.put_doc("openai", ws, {"key": key, "hint": key[-4:], "saved_at": iso(now)})
+    return key_status(storage, ws)
+
+
 async def answer(context: dict[str, Any], messages: list[ChatMessage],
-                 transport: httpx.AsyncBaseTransport | None = None) -> str:
-    key = os.environ.get("OPENAI_API_KEY", "")
+                 transport: httpx.AsyncBaseTransport | None = None, key: str | None = None) -> str:
+    key = key or os.environ.get("OPENAI_API_KEY", "")
     if not key:
         raise AssistantError(503, "The assistant needs OPENAI_API_KEY in .env.")
     model = os.environ.get("OPSRELAY_ASSISTANT_MODEL") or os.environ.get("OPENAI_MODEL") or DEFAULT_MODEL
@@ -92,7 +118,7 @@ async def answer(context: dict[str, Any], messages: list[ChatMessage],
     except httpx.RequestError as exc:
         raise AssistantError(502, "Cannot reach the AI provider.") from exc
     if response.status_code == 401:
-        raise AssistantError(502, "The AI provider rejected OPENAI_API_KEY.")
+        raise AssistantError(502, "The AI provider rejected the API key.")
     if response.status_code == 429:
         raise AssistantError(502, "The AI provider's rate limit or quota was reached. Try again shortly.")
     if response.status_code != 200:

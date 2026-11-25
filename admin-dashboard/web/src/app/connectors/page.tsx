@@ -6,6 +6,7 @@ import { send, usePoll } from "@/lib/api";
 
 type Connection = { connected: boolean; login?: string; connected_at?: string };
 type VercelConnection = { connected: boolean; login?: string; team_id?: string | null };
+type OpenAIKey = { configured: boolean; hint?: string; saved_at?: string };
 type Sentry = { configured: boolean; webhook_path?: string; has_secret?: boolean;
   last_delivery?: { at: string; result: string; reason?: string; incident_id?: string } | null };
 type Notifier = { kind: string; label: string; configured: boolean; target?: string;
@@ -24,6 +25,7 @@ export default function Connectors() {
           <BetterStackPanel />
           <SentryPanel />
           <VercelPanel />
+          <OpenAIPanel />
           <NotificationsPanel />
         </div>
       )}
@@ -316,6 +318,56 @@ function VercelPanel() {
               <input className="input font-mono" placeholder="team_… (optional)" value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })} />
             </label>
             <button type="submit" className="btn btn-primary" disabled={pending}>Connect Vercel</button>
+          </div>
+        </form>
+      )}
+      {error && <p className="mt-2 text-sm text-crit" role="alert">{error}</p>}
+    </section>
+  );
+}
+
+function OpenAIPanel() {
+  const conn = usePoll<OpenAIKey>("/api/v1/openai", 60_000);
+  const [key, setKey] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const run = async (action: () => Promise<unknown>) => {
+    setPending(true);
+    setError("");
+    try {
+      await action();
+      setKey("");
+      conn.reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPending(false);
+    }
+  };
+  if (!conn.data) return null;
+  return (
+    <section className="panel p-5">
+      <h2 className="text-sm font-semibold">OpenAI API key <span className="font-normal text-muted">(optional)</span></h2>
+      {conn.data.configured ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+          <span className="badge tone-ok">Your key · ends in {conn.data.hint}</span>
+          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/openai"))}>Remove</button>
+          <p className="basis-full text-xs text-muted">The assistant and diagnose mode use this key and bill your OpenAI account, with no daily diagnosis limit.</p>
+        </div>
+      ) : (
+        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/openai", { key })); }}>
+          <p className="text-sm text-muted">
+            The assistant and diagnose mode use OpsRelay&apos;s shared key, limited to 10 diagnoses a day. Add your own{" "}
+            <a className="text-accent hover:underline" href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI key</a>{" "}
+            to use your account instead. It is encrypted and stays on the server.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">OpenAI API key</span>
+              <input className="input font-mono" type="password" autoComplete="off" placeholder="sk-…" value={key}
+                onChange={(e) => setKey(e.target.value)} required minLength={20} />
+            </label>
+            <button type="submit" className="btn btn-primary" disabled={pending}>Save key</button>
           </div>
         </form>
       )}
