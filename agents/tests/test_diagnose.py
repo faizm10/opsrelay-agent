@@ -55,3 +55,8 @@ def test_open_incidents_are_diagnosed_once_within_the_workspace_limit(monkeypatc
     monkeypatch.setenv("OPSRELAY_DIAGNOSES_PER_DAY", "10")
     assert diagnose.run(db, llm, str, httpx.MockTransport(github)) == 1  # INC-2 now; ACT-1 is unchanged
     assert db[diagnose.DIAGNOSES].count_documents({}) == 2 and db[diagnose.DIAGNOSES].find_one({"_id": "INC-3"}) is None
+
+    # "Run the agent now" diagnoses an unchanged incident once more, then clears the request.
+    db[diagnose.REQUESTS].insert_one({"_id": "ACT-1", "workspace_id": "w1"})
+    assert diagnose.run(db, llm, str, httpx.MockTransport(github)) == 1
+    assert db[diagnose.REQUESTS].count_documents({}) == 0 and diagnose.run(db, llm, str, httpx.MockTransport(github)) == 0

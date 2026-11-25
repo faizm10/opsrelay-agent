@@ -105,6 +105,7 @@ export type Incident = {
   related_ci: { id: string; status: string; stage: string; run_url: string | null; pr_url: string | null; commit_sha: string | null; created_at: string }[];
   service_health: Status;
   repo_agent?: { enabled: boolean; mode: "diagnose" | "report_only" | "draft_pr" } | null;
+  diagnosis_requested_at?: string | null;
 };
 
 export type Worker = {
