@@ -119,3 +119,12 @@ def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transpor
                 "fingerprint": fingerprint, "created_at": now}, upsert=True)
             written += 1
     return written
+
+
+if __name__ == "__main__":
+    # One pass for a scheduled job (.github/workflows/agent-diagnose.yml); the long-running worker calls run() itself.
+    from agents.llm import OpenAIStructuredLLM
+    from agents.worker import redact
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    print(f"{run(m.get_db(), OpenAIStructuredLLM(), redact)} diagnosis(es) written")

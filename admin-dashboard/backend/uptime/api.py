@@ -99,6 +99,8 @@ class IncidentOut(Incident):
     service_name: str
     related_ci: list[dict[str, Any]] = Field(default_factory=list)
     service_health: Status = "unknown"
+    # The repair agent setting of the repository this incident belongs to (detail view only).
+    repo_agent: dict[str, Any] | None = None
 
 
 class MonitoringHealth(BaseModel):
@@ -431,8 +433,10 @@ def create_app(
                                current=current(service, now), uptime=stats, bars=b, latest_check=checks[0] if checks else None)
 
     def incident_out(incident: Incident, now: datetime, *, related: bool = False) -> IncidentOut:
-        related_ci = []
+        related_ci, repo_agent = [], None
         if related:
+            mapping = storage.get_doc("repos", incident.service_id.split("#")[0])
+            repo_agent = (mapping.get("agent") or {"enabled": False, "mode": "report_only"}) if mapping else None
             for doc in storage.find_agent_incidents(incident.app, incident.started_at, incident.resolved_at or now):
                 related_ci.append({
                     "id": str(doc.get("_id")), "status": doc.get("status"), "stage": doc.get("stage"),
@@ -442,7 +446,8 @@ def create_app(
         state = storage.get_state(incident.service_id)
         return IncidentOut(**incident.model_dump(), duration_seconds=incident.elapsed_seconds(now),
                            service_name=service_name(incident.service_id), related_ci=related_ci,
-                           service_health=alert_health(incident) or (state.status if state else "unknown"))
+                           service_health=alert_health(incident) or (state.status if state else "unknown"),
+                           repo_agent=repo_agent)
 
     def alert_health(incident: Incident) -> str | None:
         """For alert-only sources the open incident is the health signal: its severity while open."""

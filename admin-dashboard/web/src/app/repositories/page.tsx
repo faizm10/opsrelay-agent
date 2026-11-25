@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GitBranch, Trash2 } from "lucide-react";
+import { Combobox } from "@/components/combobox";
 import { ErrorPanel, PageHeader, Shell, Skeleton } from "@/components/ui";
 import { type AgentMode, send, usePoll } from "@/lib/api";
 
@@ -136,13 +137,12 @@ function AddRepository({ onAdded }: { onAdded: () => void }) {
       <h2 className="text-sm font-semibold">Add a repository</h2>
       {repos.error && <p className="text-sm text-crit" role="alert">{repos.error.message}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="label">Repository</span>
-          <select className="input" value={repo} onChange={(e) => setRepo(e.target.value)} required>
-            <option value="">{repos.data ? "Choose a repository" : "Loading repositories…"}</option>
-            {repos.data?.map((r) => <option key={r.full_name} value={r.full_name}>{r.full_name}{r.private ? " (private)" : ""}</option>)}
-          </select>
-        </label>
+        <div className="space-y-1.5">
+          <label htmlFor="repo-picker" className="label">Repository</label>
+          <Combobox id="repo-picker" value={repo} onChange={setRepo} disabled={!repos.data}
+            placeholder={repos.data ? "Choose a repository" : "Loading repositories…"} searchPlaceholder="Search repositories…"
+            empty="No repository matches." options={(repos.data ?? []).map((r) => ({ value: r.full_name, label: r.full_name, hint: r.private ? "private" : undefined }))} />
+        </div>
         <label className="space-y-1.5">
           <span className="label">Service name</span>
           <input className="input" value={form.service_name} onChange={set("service_name")} required maxLength={60} />
