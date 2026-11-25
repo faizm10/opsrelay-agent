@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isPublicPage } from "@/lib/routes";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
@@ -26,7 +27,7 @@ function readClosed(): string | null {
 /** Relay, the OpsRelay companion: one short, state-derived hint at a time, bottom-right of the signed-in dashboard. */
 export function Mascot() {
   const pathname = usePathname();
-  const signedIn = pathname !== "/sign-in";
+  const signedIn = !isPublicPage(pathname);
   const { data } = usePoll<Summary>(signedIn ? "/api/v1/summary?window=24h" : null, STATUS_POLL_MS);
   const message = data ? mascotMessage(data) : null;
   const [open, setOpen] = useState(false);

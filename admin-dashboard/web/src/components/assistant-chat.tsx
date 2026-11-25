@@ -1,5 +1,6 @@
 "use client";
 
+import { isPublicPage } from "@/lib/routes";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, RotateCcw, Send, X } from "lucide-react";
@@ -57,7 +58,7 @@ export function AssistantChat() {
     }
   }
 
-  if (pathname === "/sign-in") return null;
+  if (isPublicPage(pathname)) return null;
   if (!open) {
     return (
       <button

@@ -63,7 +63,7 @@ export function PageHeader({ title, sub, children }: { title: React.ReactNode; s
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="OpsRelay status home">
+    <Link href="/" className="flex items-center gap-2.5" aria-label="OpsRelay home">
       <img src="/icon.svg" alt="" width="32" height="32" />
       <span className="text-xl font-semibold tracking-[-0.05em]">OpsRelay</span>
     </Link>
@@ -130,7 +130,7 @@ export function Stat({ label, value, sub, title }: { label: string; value: React
 
 const NAV = {
   Monitoring: [
-    { href: "/", label: "Overview", Icon: LayoutDashboard },
+    { href: "/overview", label: "Overview", Icon: LayoutDashboard },
     { href: "/incidents", label: "Incidents", Icon: Siren },
     { href: "/ai-agent", label: "Investigations", Icon: Search },
   ],
@@ -149,7 +149,7 @@ function NavLinks() {
         <div key={group}>
           <p className="mb-2 px-3 text-xs font-medium text-faint">{group}</p>
           {links.map(({ href, label, Icon }) => {
-            const active = href === "/" ? path === "/" || path.startsWith("/services") : path.startsWith(href);
+            const active = href === "/overview" ? path === "/overview" || path.startsWith("/services") : path.startsWith(href);
             return (
               <Link key={href} href={href} aria-current={active ? "page" : undefined}
                 className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${

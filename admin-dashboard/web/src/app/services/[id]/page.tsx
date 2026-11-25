@@ -89,7 +89,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
 
   return (
     <Shell meta={detail.meta} updatedAt={detail.updatedAt} error={detail.error}>
-      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href="/overview" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> All services
       </Link>
       {!d && detail.error ? (
