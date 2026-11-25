@@ -81,50 +81,29 @@ function Monitor({ m }: { m: Summary["monitoring"] }) {
   );
 }
 
-const DIAL_COLORS: Record<Status, string> = {
-  operational: "#bbdb91", degraded: "#f0c770", down: "#fa9c8e", unknown: "#abb7ae",
-};
-
 function HealthCover({ summary }: { summary: Summary }) {
   const { overall, services, monitoring } = summary;
   const counts: Record<Status, number> = { operational: 0, degraded: 0, down: 0, unknown: 0 };
   services.forEach((service) => counts[service.current.status]++);
-  let end = 0;
-  const stops = (Object.keys(counts) as Status[]).filter((status) => counts[status]).map((status) => {
-    const start = end;
-    end += counts[status] / services.length * 100;
-    return `${DIAL_COLORS[status]} ${start}% ${end}%`;
-  });
-
   return (
-    <header className="health-cover">
-      <div className="flex items-center justify-between gap-4 px-5 py-7 sm:px-9 sm:py-9">
-        <div className="min-w-0">
-          <p className="mb-3 flex items-center gap-2 text-xs font-medium">
-            <span className="h-2 w-2 rounded-full" style={{ background: DIAL_COLORS[overall.status] }} />Service status
-          </p>
-          <h1 className="max-w-[16ch] break-words font-display text-[clamp(2.6rem,5.2vw,5.6rem)] leading-[0.98] tracking-[-0.035em]">
-            {overall.label}
-          </h1>
-          {overall.affected_services.length > 0 && <p className="mt-3 break-words text-sm">{overall.affected_services.join(", ")}</p>}
-          <p className="mt-4 text-xs text-[#d0ddcb]">Checking every {monitoring.interval_seconds} seconds{summary.active_incidents.length === 0 && " · No active incidents"}</p>
-        </div>
-        <div className="health-dial" aria-label={`${services.length} monitored services`}>
-          <div aria-hidden="true" className="absolute inset-[12%] rounded-full" style={{ background: stops.length ? `conic-gradient(${stops.join(", ")})` : "#63786a" }} />
-          <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-[#294738]" aria-hidden="true">
-            <span className="font-display text-4xl leading-none sm:text-6xl">{services.length}</span>
-            <span className="text-xs text-[#d0ddcb]">{services.length === 1 ? "service" : "services"}</span>
-          </div>
-        </div>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-white/20 px-5 py-3 sm:flex sm:gap-7 sm:px-9">
+    <header className="panel p-6 sm:p-8">
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <span className="h-2 w-2 rounded-full" style={{ background: STATUS_META[overall.status].color }} aria-hidden="true" />Service status
+      </p>
+      <h1 className="mt-2 break-words text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px]">{overall.label}</h1>
+      {overall.affected_services.length > 0 && <p className="mt-2 break-words text-[15px] text-muted">{overall.affected_services.join(", ")}</p>}
+      <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">
         {(Object.keys(counts) as Status[]).map((status) => (
-          <div key={status} className="flex items-center gap-2 text-xs">
-            <dt className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: DIAL_COLORS[status] }} />{STATUS_META[status].label}</dt>
-            <dd className="font-semibold tabular">{counts[status]}</dd>
+          <div key={status}>
+            <dt className="text-sm text-muted">{STATUS_META[status].label}</dt>
+            <dd className={`tabular mt-1 text-2xl font-semibold ${counts[status] && status !== "operational" ? STATUS_META[status].text : "text-ink"}`}>{counts[status]}</dd>
           </div>
         ))}
       </dl>
+      <p className="mt-6 border-t border-line pt-4 text-xs text-faint">
+        {services.length} {services.length === 1 ? "service" : "services"} checked every {Math.round(monitoring.interval_seconds / 60) || 1} min
+        {summary.active_incidents.length === 0 && " · No active incidents"}
+      </p>
     </header>
   );
 }

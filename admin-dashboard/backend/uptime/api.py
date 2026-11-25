@@ -532,7 +532,8 @@ def create_app(
         elif now - last > timedelta(seconds=settings.stale_after_intervals * interval):
             status, message = "stale", f"No cycle for {int((now - last).total_seconds())}s; check the scheduled GitHub Actions run (uptime-checks) or start python -m uptime worker."
         else:
-            status, message = "running", f"Checking {len(services(ws))} services every {interval}s."
+            count = len(services(ws))
+            status, message = "running", f"Checking {count} {'service' if count == 1 else 'services'} every {interval}s."
         return MonitoringHealth(status=status, message=message, interval_seconds=interval, worker=worker,
                                 lease_held=lease_held, next_cycle_expected_at=(last + timedelta(seconds=interval)) if last else None,
                                 total_checks=sum(storage.count_checks(s.id) for s in services(ws)), storage=storage.describe())

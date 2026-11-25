@@ -51,10 +51,10 @@ export function StatusText({ status, label, className = "" }: { status: Status; 
 /** Page title row: heading, optional subtitle and actions on the right. */
 export function PageHeader({ title, sub, children }: { title: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="mb-7 flex flex-wrap items-end gap-4 border-b border-line pb-6">
+    <div className="mb-8 flex flex-wrap items-end gap-4">
       <div className="min-w-0 flex-1">
         <h1 className="page-title">{title}</h1>
-        {sub && <p className="mt-3 max-w-2xl break-words text-sm leading-relaxed text-muted">{sub}</p>}
+        {sub && <p className="mt-2 max-w-2xl break-words text-[15px] leading-relaxed text-muted">{sub}</p>}
       </div>
       {children}
     </div>
@@ -85,7 +85,7 @@ export function LiveIndicator({ updatedAt, error, intervalMs = POLL_MS }: { upda
     loading: "Loading…",
     unavailable: at ? `Refresh failed · last refresh ${clock(at)}` : "Monitoring API unavailable",
     stale: `Stale · last refresh ${clock(at)}`,
-    fresh: `Refreshed ${clock(at)} · every ${Math.round(intervalMs / 1000)}s`,
+    fresh: `Updated ${clock(at)}`,
   }[state];
   return (
     <span className={`tabular inline-flex items-center gap-2 text-xs ${state === "fresh" || state === "loading" ? "text-muted" : "text-warn"}`} role="status">
