@@ -4,7 +4,7 @@ import { Button } from "@astryxdesign/core/Button";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ErrorPanel, PageHeader, Shell, Skeleton } from "@/components/ui";
-import { send, usePoll } from "@/lib/api";
+import { type ApiError, send, usePoll } from "@/lib/api";
 
 type Connection = { connected: boolean; login?: string; connected_at?: string };
 type VercelConnection = { connected: boolean; login?: string; team_id?: string | null };
@@ -32,6 +32,21 @@ export default function Connectors() {
         </div>
       )}
     </Shell>
+  );
+}
+
+// A connector whose saved settings are still loading, or failed to load, stays on the page instead of vanishing.
+function PanelLoading({ title, poll }: { title: string; poll: { error: ApiError | null; reload: () => void } }) {
+  return (
+    <section className="panel p-5" aria-busy={!poll.error}>
+      <h2 className="section-title">{title}</h2>
+      {poll.error ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm" role="alert">
+          <span className="text-crit">Couldn&apos;t load the saved settings: {poll.error.message}</span>
+          <button type="button" className="btn" onClick={poll.reload}>Retry</button>
+        </div>
+      ) : <Skeleton className="mt-3 h-9" />}
+    </section>
   );
 }
 
@@ -98,7 +113,7 @@ function BetterStackPanel() {
       setError((e as Error).message);
     }
   };
-  if (!shown) return null;
+  if (!shown) return <PanelLoading title="Better Stack alerts" poll={conf} />;
   const last = shown.last_delivery;
   return (
     <section className="panel space-y-3 p-5">
@@ -145,7 +160,7 @@ const NOTIFIER_FORM: Record<string, { field: string; placeholder: string; help: 
 
 function NotificationsPanel() {
   const list = usePoll<Notifier[]>("/api/v1/notifications", 60_000);
-  if (!list.data) return null;
+  if (!list.data) return <PanelLoading title="Notifications" poll={list} />;
   return (
     <section className="panel xl:col-span-2">
       <div className="border-b border-line px-5 py-3">
@@ -235,7 +250,7 @@ function SentryPanel() {
       setError((e as Error).message);
     }
   };
-  if (!conf.data) return null;
+  if (!conf.data) return <PanelLoading title="Sentry issues" poll={conf} />;
   const c = conf.data;
   const last = c.last_delivery;
   return (
@@ -294,7 +309,7 @@ function VercelPanel() {
       setPending(false);
     }
   };
-  if (!conn.data) return null;
+  if (!conn.data) return <PanelLoading title="Vercel deployments" poll={conn} />;
   return (
     <section className="panel p-5">
       <h2 className="section-title">Vercel deployments</h2>
@@ -348,7 +363,7 @@ function OpenAIPanel() {
       setPending(false);
     }
   };
-  if (!conn.data) return null;
+  if (!conn.data) return <PanelLoading title="OpenAI API key" poll={conn} />;
   return (
     <section className="panel p-5">
       <h2 className="section-title">OpenAI API key <span className="font-normal text-muted">(optional)</span></h2>

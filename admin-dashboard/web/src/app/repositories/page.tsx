@@ -39,7 +39,7 @@ export default function Repositories() {
   return (
     <Shell meta={github.meta} updatedAt={github.updatedAt} error={loadError} intervalMs={60_000}>
       <PageHeader title="Repositories" sub="Each service maps to the GitHub repository, branch and deployment the repair agent works on." />
-      {loadError && !github.data ? <ErrorPanel error={loadError} onRetry={github.reload} />
+      {loadError && (!github.data || !mapped.data) ? <ErrorPanel error={loadError} onRetry={() => { github.reload(); mapped.reload(); }} />
         : !github.data || !mapped.data ? <Skeleton className="h-56" />
         : (
           <div className="space-y-6">
