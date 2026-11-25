@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useState } from "react";
 import { ArrowLeft, ArrowUpRight, GitPullRequest } from "lucide-react";
+import { toast } from "sonner";
 import { Badge, ErrorPanel, Shell, Skeleton, StatusText } from "@/components/ui";
 import { type Incident, type Walkthrough, isDemoIncident, send, usePoll } from "@/lib/api";
 import { FAILURE_LABELS, clock, duration, useNow } from "@/lib/format";
@@ -93,6 +94,7 @@ function RunAgent({ id, requestedAt, again, onQueued }: { id: string; requestedA
     setError("");
     try {
       await send("POST", `/api/v1/incidents/${encodeURIComponent(id)}/diagnosis`);
+      toast.success("Agent run queued", { description: "It picks this incident up within about 5 minutes." });
       onQueued();
     } catch (e) {
       setError((e as Error).message);

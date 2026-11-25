@@ -3,6 +3,7 @@
 import { Button } from "@astryxdesign/core/Button";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { GitBranch, Trash2 } from "lucide-react";
 import { Combobox } from "@/components/combobox";
@@ -27,6 +28,7 @@ export default function Repositories() {
   const remove = async (m: Mapping) => {
     try {
       await send("DELETE", `/api/v1/repositories/${encodeURIComponent(m.service_id)}`);
+      toast.success(`${m.repo} removed`);
       mapped.reload();
     } catch (e) {
       setError((e as Error).message);
@@ -124,6 +126,7 @@ function AddRepository({ onAdded }: { onAdded: () => void }) {
     setError("");
     try {
       await send("POST", "/api/v1/repositories", { repo, ...form, workflow: form.workflow || null });
+      toast.success(`${repo} added`);
       setRepo("");
       setForm({ service_name: "", base_branch: "", deployed_url: "", workflow: "" });
       onAdded();
@@ -184,6 +187,7 @@ function MappingField({ mapping, label, saved, path, field, pattern, placeholder
     e.preventDefault();
     try {
       await send("PUT", `/api/v1/repositories/${encodeURIComponent(mapping.service_id)}/${path}`, { [field]: value || null });
+      toast.success("Saved");
       setError("");
       onSaved();
     } catch (err) {
@@ -212,6 +216,7 @@ function AgentControl({ mapping, config, onSaved }: { mapping: Mapping; config: 
   const save = async (enabled: boolean, next: { mode?: AgentMode; app?: string } = {}) => {
     try {
       await send("PUT", `/api/v1/repositories/${encodeURIComponent(mapping.service_id)}/agent`, { enabled, mode: next.mode ?? mode, app: next.app ?? app });
+      toast.success(enabled ? `Agent on for ${mapping.repo}` : `Agent off for ${mapping.repo}`);
       setError("");
       onSaved();
     } catch (e) {

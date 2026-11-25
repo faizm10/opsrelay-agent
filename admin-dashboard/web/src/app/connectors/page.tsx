@@ -2,6 +2,7 @@
 
 import { Button } from "@astryxdesign/core/Button";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ErrorPanel, PageHeader, Shell, Skeleton } from "@/components/ui";
 import { send, usePoll } from "@/lib/api";
 
@@ -38,11 +39,12 @@ function GitHubPanel({ connection, onChange }: { connection: Connection; onChang
   const [token, setToken] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, done: string) => {
     setPending(true);
     setError("");
     try {
       await action();
+      toast.success(done);
       setToken("");
       onChange();
     } catch (e) {
@@ -58,10 +60,10 @@ function GitHubPanel({ connection, onChange }: { connection: Connection; onChang
       {connection.connected ? (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="badge tone-ok">Connected as {connection.login}</span>
-          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/github"))}>Disconnect</button>
+          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/github"), "GitHub disconnected")}>Disconnect</button>
         </div>
       ) : (
-        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/github", { token })); }}>
+        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/github", { token }), "GitHub connected"); }}>
           <p className="text-sm text-muted">
             Paste a GitHub token. Only the repositories it can access can be mapped. A{" "}
             <a className="text-accent hover:underline" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">fine-grained token</a>{" "}
@@ -90,6 +92,7 @@ function BetterStackPanel() {
     if (shown?.configured && !window.confirm("Replace the webhook URL and secret? Better Stack must be updated with the new ones.")) return;
     try {
       setCreated(await send<BetterStack>("POST", "/api/v1/betterstack"));
+      toast.success("Better Stack webhook URL created");
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -162,17 +165,15 @@ function NotifierRow({ notifier: n, onChange }: { notifier: Notifier; onChange: 
   const form = NOTIFIER_FORM[n.kind];
   const [value, setValue] = useState("");
   const [pending, setPending] = useState(false);
-  const [note, setNote] = useState("");
   const [secret, setSecret] = useState("");
   const [error, setError] = useState("");
-  const run = async (action: () => Promise<unknown>, done = "") => {
+  const run = async (action: () => Promise<unknown>, done: string) => {
     setPending(true);
     setError("");
-    setNote("");
     try {
       await action();
       setValue("");
-      setNote(done);
+      toast.success(done);
       onChange();
     } catch (e) {
       setError((e as Error).message);
@@ -189,11 +190,11 @@ function NotifierRow({ notifier: n, onChange }: { notifier: Notifier; onChange: 
         {n.configured ? (
           <>
             <span className="badge tone-ok">Connected <span className="font-mono">{n.target}</span></span>
-            <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("POST", `/api/v1/notifications/${n.kind}/test`), "Test message sent.")}>Send test</button>
-            <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", `/api/v1/notifications/${n.kind}`))}>Remove</button>
+            <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("POST", `/api/v1/notifications/${n.kind}/test`), "Test message sent")}>Send test</button>
+            <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", `/api/v1/notifications/${n.kind}`), `${n.label} removed`)}>Remove</button>
           </>
         ) : form && (
-          <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(async () => setSecret((await send<{ secret?: string }>("PUT", `/api/v1/notifications/${n.kind}`, { [form.field]: value })).secret ?? "")); }}>
+          <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(async () => setSecret((await send<{ secret?: string }>("PUT", `/api/v1/notifications/${n.kind}`, { [form.field]: value })).secret ?? ""), `${n.label} saved`); }}>
             <label className="min-w-0 flex-1">
               <span className="sr-only">{n.label} {form.field}</span>
               <input className="input font-mono" type="password" autoComplete="off" placeholder={form.placeholder} value={value} onChange={(e) => setValue(e.target.value)} required />
@@ -214,7 +215,6 @@ function NotifierRow({ notifier: n, onChange }: { notifier: Notifier; onChange: 
           <code> X-OpsRelay-Signature: sha256=</code>HMAC-SHA256 of the raw body with this secret.
         </p>
       )}
-      {note && <p className="text-xs text-ok" role="status">{note}</p>}
       {error && <p className="text-xs text-crit" role="alert">{error}</p>}
     </li>
   );
@@ -224,9 +224,10 @@ function SentryPanel() {
   const conf = usePoll<Sentry>("/api/v1/sentry", 60_000);
   const [secret, setSecret] = useState("");
   const [error, setError] = useState("");
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, done: string) => {
     try {
       await action();
+      toast.success(done);
       setSecret("");
       setError("");
       conf.reload();
@@ -243,7 +244,7 @@ function SentryPanel() {
       {!c.configured ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted">Unresolved Sentry issues open an incident on the mapped service, and close it once they&apos;re resolved or ignored.</p>
-          <button type="button" className="btn btn-primary" onClick={() => run(() => send("POST", "/api/v1/sentry"))}>Create webhook URL</button>
+          <button type="button" className="btn btn-primary" onClick={() => run(() => send("POST", "/api/v1/sentry"), "Sentry webhook URL created")}>Create webhook URL</button>
         </div>
       ) : (
         <>
@@ -259,7 +260,7 @@ function SentryPanel() {
             <dt className="label">Last delivery</dt>
             <dd>{last ? `${new Date(last.at).toLocaleString()} · ${last.result}${last.reason ? ` · ${last.reason}` : ""}` : "None yet"}</dd>
           </dl>
-          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/sentry/secret", { client_secret: secret })); }}>
+          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/sentry/secret", { client_secret: secret }), "Sentry client secret saved"); }}>
             <label className="min-w-0 flex-1">
               <span className="sr-only">Sentry client secret</span>
               <input className="input font-mono" type="password" autoComplete="off" placeholder={c.has_secret ? "Replace the client secret" : "Client secret"}
@@ -279,11 +280,12 @@ function VercelPanel() {
   const [form, setForm] = useState({ token: "", team_id: "" });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, done: string) => {
     setPending(true);
     setError("");
     try {
       await action();
+      toast.success(done);
       setForm({ token: "", team_id: "" });
       conn.reload();
     } catch (e) {
@@ -299,11 +301,11 @@ function VercelPanel() {
       {conn.data.connected ? (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="badge tone-ok">Connected as {conn.data.login}{conn.data.team_id ? ` · team ${conn.data.team_id}` : ""}</span>
-          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/vercel"))}>Disconnect</button>
+          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/vercel"), "Vercel disconnected")}>Disconnect</button>
           <p className="basis-full text-xs text-muted">Set each service&apos;s Vercel project on the Repositories page. A failed production deploy opens an incident until the next one is ready.</p>
         </div>
       ) : (
-        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/vercel", { token: form.token, team_id: form.team_id || null })); }}>
+        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/vercel", { token: form.token, team_id: form.team_id || null }), "Vercel connected"); }}>
           <p className="text-sm text-muted">
             Paste a <a className="text-accent hover:underline" href="https://vercel.com/account/settings/tokens" target="_blank" rel="noreferrer">Vercel token</a>.
             For projects owned by a team, add the team ID (Team Settings → General). It stays on the server.
@@ -332,11 +334,12 @@ function OpenAIPanel() {
   const [key, setKey] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, done: string) => {
     setPending(true);
     setError("");
     try {
       await action();
+      toast.success(done);
       setKey("");
       conn.reload();
     } catch (e) {
@@ -352,11 +355,11 @@ function OpenAIPanel() {
       {conn.data.configured ? (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="badge tone-ok">Your key · ends in {conn.data.hint}</span>
-          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/openai"))}>Remove</button>
+          <button type="button" className="btn" disabled={pending} onClick={() => run(() => send("DELETE", "/api/v1/openai"), "OpenAI key removed. The shared key is used again.")}>Remove</button>
           <p className="basis-full text-xs text-muted">The assistant and diagnose mode use this key and bill your OpenAI account, with no daily diagnosis limit.</p>
         </div>
       ) : (
-        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/openai", { key })); }}>
+        <form className="mt-2 space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => send("PUT", "/api/v1/openai", { key }), "OpenAI key saved"); }}>
           <p className="text-sm text-muted">
             The assistant and diagnose mode use OpsRelay&apos;s shared key, limited to 10 diagnoses a day. Add your own{" "}
             <a className="text-accent hover:underline" href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI key</a>{" "}

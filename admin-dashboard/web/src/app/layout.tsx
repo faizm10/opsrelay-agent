@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { AssistantChat } from "@/components/assistant-chat";
 import { Mascot } from "@/components/mascot";
 import { DashboardTheme } from "@/components/dashboard-theme";
+import { Toaster } from "@/components/sonner";
 import "./globals.css";
 
 const display = Instrument_Serif({ weight: "400", subsets: ["latin"], variable: "--font-display", display: "swap" });
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <Mascot />
           <AssistantChat />
+          <Toaster />
         </DashboardTheme>
         {process.env.VERCEL && <Analytics />}
       </body>
