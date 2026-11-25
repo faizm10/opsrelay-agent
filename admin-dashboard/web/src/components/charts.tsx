@@ -8,7 +8,7 @@ import { StatusIcon } from "./ui";
 const WINDOW_START_LABEL: Record<Window, string> = { "24h": "24 hours ago", "7d": "7 days ago", "30d": "30 days ago" };
 
 function barColor(status: Status) {
-  return status === "unknown" ? "#2b2f37" : STATUS_META[status].color;
+  return status === "unknown" ? "#c4c9bd" : STATUS_META[status].color;
 }
 
 /* ----------------------------------------------------------- uptime bars */
@@ -67,7 +67,7 @@ export function UptimeBars({ bars, window, height = 34, label, compact = false }
       <span className="sr-only" aria-live="polite">{hovered ? describe(hovered, window) : ""}</span>
       {hovered && (
         <div
-          className="pointer-events-none absolute bottom-full z-20 mb-2.5 w-60 -translate-x-1/2 rounded-lg border border-line-strong bg-raised p-3 text-xs shadow-2xl shadow-black/50"
+          className="pointer-events-none absolute bottom-full z-20 mb-2.5 w-60 -translate-x-1/2 rounded-lg border border-line-strong bg-raised p-3 text-xs shadow-lg"
           style={{ left: `clamp(7.5rem, ${leftPct}%, calc(100% - 7.5rem))` }}
         >
           <p className="tabular text-muted">
@@ -194,15 +194,15 @@ export function LatencyChart({ title, points, height = 150 }: { title: string; p
           <svg viewBox={`0 0 1000 ${height}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" role="img" aria-label={`${title} line chart`}>
             <defs>
               <linearGradient id={`fill-${title.replace(/\W/g, "")}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#3987e5" stopOpacity="0.22" />
-                <stop offset="1" stopColor="#3987e5" stopOpacity="0" />
+                <stop offset="0" stopColor="#225b46" stopOpacity="0.22" />
+                <stop offset="1" stopColor="#225b46" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[0, 0.5, 1].map((f) => (
-              <line key={f} x1="0" x2="1000" y1={y(top * f)} y2={y(top * f)} stroke={f === 0 ? "#383c44" : "#23272e"} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <line key={f} x1="0" x2="1000" y1={y(top * f)} y2={y(top * f)} stroke={f === 0 ? "#bcc3b5" : "#e1e5da"} strokeWidth="1" vectorEffect="non-scaling-stroke" />
             ))}
             <path d={area} fill={`url(#fill-${title.replace(/\W/g, "")})`} />
-            <path d={line} fill="none" stroke="#3987e5" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            <path d={line} fill="none" stroke="#225b46" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
             {hover !== null && <line x1={x(hover)} x2={x(hover)} y1="0" y2={height} stroke="#646a76" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
           </svg>
           {singles.map(([px, py]) => (
@@ -216,7 +216,7 @@ export function LatencyChart({ title, points, height = 150 }: { title: string; p
           )}
           {hp && (
             <div
-              className="pointer-events-none absolute -top-2 z-10 w-44 -translate-x-1/2 -translate-y-full rounded-lg border border-line-strong bg-raised p-2.5 text-xs shadow-2xl shadow-black/50"
+              className="pointer-events-none absolute -top-2 z-10 w-44 -translate-x-1/2 -translate-y-full rounded-lg border border-line-strong bg-raised p-2.5 text-xs shadow-lg"
               style={{ left: `clamp(5.5rem, ${(x(hover!) / 1000) * 100}%, calc(100% - 5.5rem))` }}
             >
               <p className="text-muted">{clock(hp.t, true)}</p>

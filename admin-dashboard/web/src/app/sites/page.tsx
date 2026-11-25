@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { ErrorPanel, PageHeader, Shell, Skeleton } from "@/components/ui";
@@ -28,7 +29,7 @@ export default function Sites() {
         : (
           <div className="space-y-6">
             <section className="panel">
-              <h2 className="border-b border-line px-5 py-3 text-sm font-semibold">Monitored sites</h2>
+              <h2 className="border-b border-line px-5 py-3 section-title">Monitored sites</h2>
               {sites.data.length === 0 ? (
                 <p className="px-5 py-4 text-sm text-muted">No sites yet. Add one below.</p>
               ) : (
@@ -77,7 +78,7 @@ function AddSite({ onAdded }: { onAdded: () => void }) {
 
   return (
     <form onSubmit={submit} className="panel space-y-3 p-5">
-      <h2 className="text-sm font-semibold">Add a site</h2>
+      <h2 className="section-title">Add a site</h2>
       <p className="text-xs text-muted">
         OpsRelay loads the page URL. If you add a health URL, it must answer 2xx, and a JSON <code>status</code> field, if
         present, must be ok/healthy. The first check runs right away.
@@ -93,7 +94,7 @@ function AddSite({ onAdded }: { onAdded: () => void }) {
           <input className="input w-full" type="url" value={form.health_url} onChange={set("health_url")} placeholder="https://api.example.com/health" />
         </label>
       </div>
-      <button type="submit" className="btn btn-primary" disabled={pending}>{pending ? "Adding and checking…" : "Add site"}</button>
+      <Button type="submit" variant="primary" isLoading={pending} label={pending ? "Adding and checking…" : "Add site"} />
       {error && <p className="text-sm text-crit" role="alert">{error}</p>}
     </form>
   );

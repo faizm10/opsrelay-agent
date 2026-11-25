@@ -1,9 +1,11 @@
 "use client";
 
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { Button } from "@astryxdesign/core/Button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, GitBranch, Globe, HelpCircle, LayoutDashboard, LogOut, Plug, Search, Siren, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, GitBranch, Globe, HelpCircle, LayoutDashboard, LogOut, Menu, Plug, Search, Siren, XCircle } from "lucide-react";
 import { type Account, type ApiError, type ErrorKind, type Meta, POLL_MS, type Status, type Window } from "@/lib/api";
 import { STATUS_META, ago, clock, useNow } from "@/lib/format";
 import packageInfo from "../../package.json";
@@ -49,10 +51,10 @@ export function StatusText({ status, label, className = "" }: { status: Status; 
 /** Page title row: heading, optional subtitle and actions on the right. */
 export function PageHeader({ title, sub, children }: { title: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end gap-4">
+    <div className="mb-7 flex flex-wrap items-end gap-4 border-b border-line pb-6">
       <div className="min-w-0 flex-1">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-muted">{sub}</p>}
+        <h1 className="page-title">{title}</h1>
+        {sub && <p className="mt-3 max-w-2xl break-words text-sm leading-relaxed text-muted">{sub}</p>}
       </div>
       {children}
     </div>
@@ -61,13 +63,9 @@ export function PageHeader({ title, sub, children }: { title: React.ReactNode; s
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="OpsRelay status home">
-      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
-        <rect width="30" height="30" rx="8" fill="#16191e" stroke="#2f343c" />
-        <path d="M7 19.5h4.5l2.5-8 3.5 11 2.5-7H23" fill="none" stroke="#3987e5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="23" cy="15.5" r="1.8" fill="#0ca30c" />
-      </svg>
-      <span className="text-[15px] font-semibold tracking-tight">OpsRelay</span>
+    <Link href="/" className="flex items-center gap-2.5" aria-label="OpsRelay home">
+      <img src="/icon.svg" alt="" width="32" height="32" />
+      <span className="text-xl font-semibold tracking-[-0.05em]">OpsRelay</span>
     </Link>
   );
 }
@@ -114,19 +112,9 @@ function StaleNotice({ updatedAt, error, intervalMs }: { updatedAt: number | nul
 export function WindowTabs({ value, onChange }: { value: Window; onChange: (w: Window) => void }) {
   const items: [Window, string][] = [["24h", "24 hours"], ["7d", "7 days"], ["30d", "30 days"]];
   return (
-    <div className="inline-flex rounded-lg border border-line bg-surface p-1" role="tablist" aria-label="Time window">
-      {items.map(([w, label]) => (
-        <button
-          key={w}
-          role="tab"
-          aria-selected={value === w}
-          onClick={() => onChange(w)}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${value === w ? "bg-hover text-ink shadow-sm" : "text-muted hover:text-ink"}`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl label="Time window" size="md" value={value} onChange={(w) => onChange(w as Window)}>
+      {items.map(([w, label]) => <SegmentedControlItem key={w} value={w} label={label} />)}
+    </SegmentedControl>
   );
 }
 
@@ -140,59 +128,74 @@ export function Stat({ label, value, sub, title }: { label: string; value: React
   );
 }
 
-const NAV = [
-  { href: "/", label: "Status", Icon: LayoutDashboard },
-  { href: "/incidents", label: "Incidents", Icon: Siren },
-  { href: "/ai-agent", label: "Investigations", Icon: Search },
-  { href: "/sites", label: "Sites", Icon: Globe },
-  { href: "/repositories", label: "Repositories", Icon: GitBranch },
-  { href: "/connectors", label: "Connectors", Icon: Plug },
-];
+const NAV = {
+  Monitoring: [
+    { href: "/overview", label: "Overview", Icon: LayoutDashboard },
+    { href: "/incidents", label: "Incidents", Icon: Siren },
+    { href: "/ai-agent", label: "Investigations", Icon: Search },
+  ],
+  Workspace: [
+    { href: "/sites", label: "Sites", Icon: Globe },
+    { href: "/repositories", label: "Repositories", Icon: GitBranch },
+    { href: "/connectors", label: "Connectors", Icon: Plug },
+  ],
+};
 
 function NavLinks() {
   const path = usePathname();
   return (
-    <>
-      {NAV.map(({ href, label, Icon }) => {
-        const active = href === "/" ? path === "/" || path.startsWith("/services") : path.startsWith(href);
-        return (
-          <Link key={href} href={href} aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-2.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm transition ${
-              active ? "bg-accent/15 font-medium text-ink ring-1 ring-accent/25" : "text-muted hover:bg-raised/60 hover:text-ink"}`}>
-            <Icon className="h-4 w-4" aria-hidden="true" /> {label}
-          </Link>
-        );
-      })}
-    </>
+    <nav aria-label="Main" className="space-y-6">
+      {Object.entries(NAV).map(([group, links]) => (
+        <div key={group}>
+          <p className="mb-2 px-3 text-xs font-medium text-faint">{group}</p>
+          {links.map(({ href, label, Icon }) => {
+            const active = href === "/overview" ? path === "/overview" || path.startsWith("/services") : path.startsWith(href);
+            return (
+              <Link key={href} href={href} aria-current={active ? "page" : undefined}
+                className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
+                  active ? "bg-[#dce6d4] font-semibold text-[#21432f]" : "text-muted hover:bg-hover hover:text-ink"}`}>
+                <Icon size={17} strokeWidth={1.7} aria-hidden="true" /> {label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
   );
 }
 
-export function Shell({ meta, updatedAt, error, intervalMs = POLL_MS, children }: {
+export function Shell({ updatedAt, error, intervalMs = POLL_MS, children }: {
   meta: Meta | null; updatedAt: number | null; error: ApiError | null; intervalMs?: number; children: React.ReactNode;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="min-h-screen lg:pl-60">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface/75 shadow-2xl shadow-black/20 backdrop-blur-2xl lg:flex">
-        <div className="flex h-14 items-center border-b border-line px-5"><Logo /></div>
-        <nav className="flex flex-1 flex-col gap-0.5 p-3" aria-label="Main"><NavLinks /></nav>
-        <div className="space-y-3 border-t border-line p-4">
-          <AccountMenu />
-          <LiveIndicator updatedAt={updatedAt} error={Boolean(error)} intervalMs={intervalMs} />
-          <p className="border-t border-line pt-3 text-[11px] text-faint">OpsRelay v{packageInfo.version}</p>
-        </div>
-      </aside>
-      <header className="sticky top-0 z-30 border-b border-line bg-page/75 backdrop-blur-xl lg:hidden">
-        <div className="flex h-12 items-center gap-3 px-4">
+    <div className="min-h-screen bg-page font-sans text-ink">
+      <a href="#workspace" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:bg-surface focus:p-2">Skip to content</a>
+      <header className="sticky top-0 z-30 border-b border-line bg-surface">
+        <div className="flex h-16 items-center gap-4 px-4 sm:px-7">
+          <button type="button" className="rounded-md p-2 hover:bg-hover lg:hidden" aria-label="Navigation" aria-expanded={menuOpen}
+            aria-controls="mobile-nav" onClick={() => setMenuOpen(!menuOpen)}><Menu size={20} /></button>
           <Logo />
-          <span className="ml-auto min-w-0 truncate"><LiveIndicator updatedAt={updatedAt} error={Boolean(error)} intervalMs={intervalMs} /></span>
+          <div className="ml-auto flex min-w-0 items-center gap-4">
+            <span className="hidden sm:block"><LiveIndicator updatedAt={updatedAt} error={Boolean(error)} intervalMs={intervalMs} /></span>
+            <AccountMenu />
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-4 pb-2"><AccountMenu /><span className="text-[11px] text-faint">v{packageInfo.version}</span></div>
-        <nav className="scroll-x flex gap-1 px-3 pb-2" aria-label="Main"><NavLinks /></nav>
+        <div id="mobile-nav" hidden={!menuOpen} className="max-h-[75dvh] overflow-auto border-t border-line p-4 lg:hidden">
+          <NavLinks />
+        </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 pb-20 pt-6 sm:px-8">
-        <StaleNotice updatedAt={updatedAt} error={error} intervalMs={intervalMs} />
-        {children}
-      </main>
+      <aside className="fixed inset-y-0 left-0 top-16 hidden w-52 flex-col border-r border-line bg-[#f0f1e9] px-3 pb-5 pt-7 lg:flex">
+        <NavLinks />
+        <p className="mx-3 mt-auto border-t border-line pt-4 font-mono text-[11px] text-faint">OpsRelay v{packageInfo.version}</p>
+      </aside>
+      <div className="lg:pl-52">
+        <main id="workspace" className="mx-auto max-w-[1440px] px-4 pb-28 pt-5 sm:px-8 sm:pt-8 xl:px-12">
+          <div className="mb-3 sm:hidden"><LiveIndicator updatedAt={updatedAt} error={Boolean(error)} intervalMs={intervalMs} /></div>
+          <StaleNotice updatedAt={updatedAt} error={error} intervalMs={intervalMs} />
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
@@ -204,13 +207,13 @@ function AccountMenu() {
   }, []);
   if (!account) return null;
   return (
-    <details className="group min-w-0 text-xs">
+    <details className="group relative min-w-0 max-w-[36vw] text-xs sm:max-w-52">
       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-1 py-1.5 text-muted hover:bg-raised/60 hover:text-ink [&::-webkit-details-marker]:hidden">
         <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-line-strong bg-raised font-semibold text-ink" aria-hidden="true">{account.user.email[0].toUpperCase()}</span>
         <span className="min-w-0 flex-1 truncate" title={account.user.email}>{account.user.email}</span>
         <ChevronDown className="h-3.5 w-3.5 flex-none transition group-open:rotate-180" aria-hidden="true" />
       </summary>
-      <div className="mt-2 rounded-md border border-line bg-raised/50 p-3">
+      <div className="absolute right-0 top-full mt-2 w-40 rounded-xl border border-line bg-surface p-3 shadow-lg">
         <button
           type="button" className="flex items-center gap-1.5 text-muted hover:text-ink"
           onClick={async () => {
@@ -244,9 +247,7 @@ export function ErrorPanel({ error, onRetry }: { error: ApiError; onRetry?: () =
         <pre className="mt-5 rounded-lg bg-page p-3 text-left text-xs text-muted">cd admin-dashboard/backend{"\n"}.venv/bin/python -m uptime serve</pre>
       )}
       {onRetry && (
-        <button onClick={onRetry} className="btn mt-4">
-          Retry
-        </button>
+        <Button label="Retry" onClick={onRetry} className="mt-4" />
       )}
     </div>
   );

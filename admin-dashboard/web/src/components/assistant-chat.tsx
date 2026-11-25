@@ -1,5 +1,6 @@
 "use client";
 
+import { isPublicPage } from "@/lib/routes";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, RotateCcw, Send, X } from "lucide-react";
@@ -57,25 +58,25 @@ export function AssistantChat() {
     }
   }
 
-  if (pathname === "/sign-in") return null;
+  if (isPublicPage(pathname)) return null;
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-raised px-4 py-3 text-sm font-medium text-ink shadow-lg transition hover:border-accent"
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-medium text-white shadow-lg transition hover:bg-ink"
       >
-        <MessageCircle className="h-4 w-4 text-accent" aria-hidden="true" /> Ask the assistant
+        <MessageCircle className="h-4 w-4" aria-hidden="true" /> Ask the assistant
       </button>
     );
   }
 
   return (
     <section
-      className="fixed inset-x-4 bottom-4 z-40 flex max-h-[min(640px,calc(100vh-2rem))] flex-col overflow-hidden rounded-xl border border-line-strong bg-raised shadow-2xl sm:inset-x-auto sm:right-5 sm:w-[400px]"
+      className="fixed inset-x-4 bottom-4 z-40 flex max-h-[min(640px,calc(100vh-2rem))] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl sm:inset-x-auto sm:right-5 sm:w-[400px]"
       aria-label="Assistant chat"
     >
-      <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+      <header className="flex items-center gap-3 border-b border-line bg-raised px-4 py-4">
         <MessageCircle className="h-4 w-4 text-accent" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold">Ask the assistant</h2>
@@ -106,7 +107,7 @@ export function AssistantChat() {
         )}
         {messages.map((m, n) => (
           <div key={n} className={m.role === "user" ? "flex justify-end" : "flex"}>
-            <p className={`max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 leading-relaxed ${m.role === "user" ? "bg-accent/15 text-ink" : "bg-surface text-ink"}`}>
+            <p className={`max-w-[85%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 leading-relaxed ${m.role === "user" ? "bg-accent/15 text-ink" : "bg-raised text-ink"}`}>
               {m.content}
             </p>
           </div>
