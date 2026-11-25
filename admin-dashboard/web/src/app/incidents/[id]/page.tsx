@@ -213,7 +213,7 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
           <div className="mt-4 space-y-8">
             <header>
               <p className="text-sm text-muted">{i.service_name}</p>
-              <h1 className="mt-0.5 text-lg font-semibold">{i.title}</h1>
+              <h1 className="page-title mt-1">{i.title}</h1>
               <p className="mt-1 text-sm text-muted">
                 <StatusText status={i.service_health} label={hp.health} />
                 <span className="tabular"> · {i.state === "open" ? "open for" : "lasted"} {duration(elapsed)} · started {clock(i.started_at, true)}{i.resolved_at ? ` · resolved ${clock(i.resolved_at, true)}` : ""}</span>

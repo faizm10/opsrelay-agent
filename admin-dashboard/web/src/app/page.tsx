@@ -7,11 +7,11 @@ import { STATES } from "@/components/agent-activity";
 import { IncidentList } from "@/components/incidents";
 import { Onboarding } from "@/components/onboarding";
 import { ErrorPanel, Shell, Skeleton, StatusText, WindowTabs } from "@/components/ui";
-import { type AgentActivity, type RepoOverview, STATUS_POLL_MS, type ServiceOverview, type Summary, type Window, usePoll } from "@/lib/api";
-import { ago, clock, ms, pct, useNow } from "@/lib/format";
+import { type AgentActivity, type RepoOverview, STATUS_POLL_MS, type ServiceOverview, type Summary, type Status, type Window, usePoll } from "@/lib/api";
+import { STATUS_META, ago, clock, ms, pct, useNow } from "@/lib/format";
 import { checkFacts } from "@/lib/phase";
 
-const COLS = "lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_7.5rem_minmax(0,1.6fr)] lg:gap-6";
+const COLS = "lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_6rem_minmax(0,1.6fr)] lg:gap-4";
 
 function ServiceRow({ s, window }: { s: ServiceOverview; window: Window }) {
   const now = useNow();
@@ -19,7 +19,7 @@ function ServiceRow({ s, window }: { s: ServiceOverview; window: Window }) {
   return (
     <li className={`border-t border-line px-4 py-4 first:border-t-0 sm:px-5 ${COLS} lg:items-center`}>
       <div className="min-w-0">
-        <Link href={`/services/${s.id}`} className="font-medium text-ink hover:underline">{s.name}</Link>
+        <Link href={`/services/${s.id}`} className="break-words font-semibold text-ink hover:underline">{s.name}</Link>
         <div className="mt-0.5 text-sm">
           <StatusText status={s.current.status} className={s.current.status === "operational" ? "text-muted" : "font-medium text-ink"} />
           {s.current.open_incident_id && (
@@ -66,8 +66,8 @@ function Monitor({ m }: { m: Summary["monitoring"] }) {
     ["Storage", m.storage.label],
   ];
   return (
-    <section aria-labelledby="monitor-title">
-      <h2 id="monitor-title" className="mb-2 text-sm font-semibold">Monitoring</h2>
+    <section aria-labelledby="monitor-title" className="min-w-0">
+      <h2 id="monitor-title" className="section-title mb-3">Monitoring</h2>
       <dl className="panel divide-y divide-line text-sm">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-center justify-between gap-4 px-4 py-2">
@@ -78,6 +78,54 @@ function Monitor({ m }: { m: Summary["monitoring"] }) {
       </dl>
       <p className="mt-2 text-xs text-faint">{m.message}{w?.heartbeat_at ? ` Heartbeat ${ago(w.heartbeat_at, now)}.` : ""}</p>
     </section>
+  );
+}
+
+const DIAL_COLORS: Record<Status, string> = {
+  operational: "#bbdb91", degraded: "#f0c770", down: "#fa9c8e", unknown: "#abb7ae",
+};
+
+function HealthCover({ summary }: { summary: Summary }) {
+  const { overall, services, monitoring } = summary;
+  const counts: Record<Status, number> = { operational: 0, degraded: 0, down: 0, unknown: 0 };
+  services.forEach((service) => counts[service.current.status]++);
+  let end = 0;
+  const stops = (Object.keys(counts) as Status[]).filter((status) => counts[status]).map((status) => {
+    const start = end;
+    end += counts[status] / services.length * 100;
+    return `${DIAL_COLORS[status]} ${start}% ${end}%`;
+  });
+
+  return (
+    <header className="health-cover">
+      <div className="flex items-center justify-between gap-4 px-5 py-7 sm:px-9 sm:py-9">
+        <div className="min-w-0">
+          <p className="mb-3 flex items-center gap-2 text-xs font-medium">
+            <span className="h-2 w-2 rounded-full" style={{ background: DIAL_COLORS[overall.status] }} />Service status
+          </p>
+          <h1 className="max-w-[16ch] break-words font-display text-[clamp(2.6rem,5.2vw,5.6rem)] leading-[0.98] tracking-[-0.035em]">
+            {overall.label}
+          </h1>
+          {overall.affected_services.length > 0 && <p className="mt-3 break-words text-sm">{overall.affected_services.join(", ")}</p>}
+          <p className="mt-4 text-xs text-[#d0ddcb]">Checking every {monitoring.interval_seconds} seconds{summary.active_incidents.length === 0 && " · No active incidents"}</p>
+        </div>
+        <div className="health-dial" aria-label={`${services.length} monitored services`}>
+          <div aria-hidden="true" className="absolute inset-[12%] rounded-full" style={{ background: stops.length ? `conic-gradient(${stops.join(", ")})` : "#63786a" }} />
+          <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-[#294738]" aria-hidden="true">
+            <span className="font-display text-4xl leading-none sm:text-6xl">{services.length}</span>
+            <span className="text-xs text-[#d0ddcb]">{services.length === 1 ? "service" : "services"}</span>
+          </div>
+        </div>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-white/20 px-5 py-3 sm:flex sm:gap-7 sm:px-9">
+        {(Object.keys(counts) as Status[]).map((status) => (
+          <div key={status} className="flex items-center gap-2 text-xs">
+            <dt className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: DIAL_COLORS[status] }} />{STATUS_META[status].label}</dt>
+            <dd className="font-semibold tabular">{counts[status]}</dd>
+          </div>
+        ))}
+      </dl>
+    </header>
   );
 }
 
@@ -93,29 +141,21 @@ export default function Overview() {
         <div className="space-y-4"><Skeleton className="h-10" /><Skeleton className="h-48" /></div>
       ) : (
         <div className="space-y-8">
-          <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2" aria-live="polite">
-            <div>
-              <h1 className="text-lg font-semibold">Service status</h1>
-              <p className="mt-0.5 text-sm">
-                <StatusText status={data.overall.status} label={data.overall.label} className="font-medium" />
-                {data.overall.affected_services.length > 0 && <span className="text-muted"> · {data.overall.affected_services.join(", ")}</span>}
-              </p>
-            </div>
-            <p className="text-xs text-muted">{data.services.length} services · checked every {data.monitoring.interval_seconds}s</p>
-          </header>
+          <HealthCover summary={data} />
+          {data.active_incidents.length > 0 && <IncidentList title="Active incidents" incidents={data.active_incidents} empty="No active incidents." />}
 
           <Onboarding summary={data} />
 
           <section aria-labelledby="services-title">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-              <h2 id="services-title" className="text-sm font-semibold">Services</h2>
+              <h2 id="services-title" className="section-title">Services</h2>
               <div className="flex flex-wrap items-center gap-4">
                 <span className="hidden md:block"><StatusLegend /></span>
                 <WindowTabs value={window} onChange={setWindow} />
               </div>
             </div>
             <div className="panel">
-              <div className={`hidden border-b border-line px-5 py-2 text-[11px] font-medium text-faint ${COLS}`} aria-hidden="true">
+              <div className={`hidden rounded-t-2xl border-b border-line bg-raised/70 px-5 py-3 text-[11px] font-medium text-faint ${COLS}`} aria-hidden="true">
                 <span>Service</span><span>Latest check</span><span>Last checked</span><span>History · {data.window}</span>
               </div>
               {data.services.length === 0 ? (
@@ -126,9 +166,7 @@ export default function Overview() {
 
           {data.repositories.length > 0 && <Repositories repos={data.repositories} activity={data.agent_activity} />}
 
-          <IncidentList title="Active incidents" incidents={data.active_incidents} empty="No active incidents." />
-
-          <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
+          <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
             <IncidentList title="Recently resolved" incidents={data.recent_incidents} empty="No resolved incidents yet." />
             <Monitor m={data.monitoring} />
           </div>
@@ -143,7 +181,7 @@ function Repositories({ repos, activity }: { repos: RepoOverview[]; activity: Ag
   return (
     <section aria-labelledby="repos-title">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 id="repos-title" className="text-sm font-semibold">Repositories</h2>
+        <h2 id="repos-title" className="section-title">Repositories</h2>
         <Link href="/repositories" className="text-xs text-accent hover:underline">Manage</Link>
       </div>
       <ul className="panel divide-y divide-line">

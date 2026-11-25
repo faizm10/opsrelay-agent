@@ -106,7 +106,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               <StatusIcon status={d.current.status} className="h-8 w-8" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 className="text-lg font-semibold">{d.service.name}</h1>
+                  <h1 className="page-title">{d.service.name}</h1>
                   <StatusPill status={d.current.status} />
                 </div>
                 <p className="mt-1 text-sm text-muted">{d.service.description}</p>
@@ -125,7 +125,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
 
           <section className="panel p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Uptime history</h2>
+              <h2 className="section-title">Uptime history</h2>
               <WindowTabs value={window} onChange={setWindow} />
             </div>
             <div className="mt-6">
@@ -162,7 +162,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
           </section>
 
           <section className="panel p-6">
-            <h2 className="text-sm font-semibold">Latest checks</h2>
+            <h2 className="section-title">Latest checks</h2>
             <div className="scroll-x mt-4">
               <table className="tabular w-full min-w-[720px] text-left text-sm">
                 <thead className="text-[11px] uppercase tracking-wider text-faint">
@@ -199,7 +199,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
 
           <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
             <section className="panel p-6">
-              <h2 className="text-sm font-semibold">Incidents & outages</h2>
+              <h2 className="section-title">Incidents & outages</h2>
               {d.incidents.length === 0 ? (
                 <p className="mt-4 text-sm text-muted">No incidents recorded for {d.service.name}.</p>
               ) : (

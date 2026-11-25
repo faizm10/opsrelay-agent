@@ -1,7 +1,8 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
 import { useState } from "react";
-import { PageHeader, Shell, Skeleton } from "@/components/ui";
+import { ErrorPanel, PageHeader, Shell, Skeleton } from "@/components/ui";
 import { send, usePoll } from "@/lib/api";
 
 type Connection = { connected: boolean; login?: string; connected_at?: string };
@@ -19,8 +20,8 @@ export default function Connectors() {
   return (
     <Shell meta={github.meta} updatedAt={github.updatedAt} error={github.error} intervalMs={60_000}>
       <PageHeader title="Connectors" sub="Where OpsRelay reads code and alerts from. Secrets stay on the server and are shown only once." />
-      {!github.data ? <Skeleton className="h-56" /> : (
-        <div className="space-y-6">
+      {github.error && !github.data ? <ErrorPanel error={github.error} onRetry={github.reload} /> : !github.data ? <Skeleton className="h-56" /> : (
+        <div className="grid items-start gap-5 xl:grid-cols-2">
           <GitHubPanel connection={github.data} onChange={github.reload} />
           <BetterStackPanel />
           <SentryPanel />
@@ -53,7 +54,7 @@ function GitHubPanel({ connection, onChange }: { connection: Connection; onChang
 
   return (
     <section className="panel p-5">
-      <h2 className="text-sm font-semibold">GitHub</h2>
+      <h2 className="section-title">GitHub</h2>
       {connection.connected ? (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="badge tone-ok">Connected as {connection.login}</span>
@@ -71,7 +72,7 @@ function GitHubPanel({ connection, onChange }: { connection: Connection; onChang
               <span className="sr-only">GitHub token</span>
               <input className="input font-mono" type="password" autoComplete="off" placeholder="github_pat_…" value={token} onChange={(e) => setToken(e.target.value)} required minLength={20} />
             </label>
-            <button type="submit" className="btn btn-primary" disabled={pending}>Connect GitHub</button>
+            <Button type="submit" variant="primary" isLoading={pending} label="Connect GitHub" />
           </div>
         </form>
       )}
@@ -98,7 +99,7 @@ function BetterStackPanel() {
   const last = shown.last_delivery;
   return (
     <section className="panel space-y-3 p-5">
-      <h2 className="text-sm font-semibold">Better Stack alerts</h2>
+      <h2 className="section-title">Better Stack alerts</h2>
       {!shown.configured ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted">Get a webhook URL, then map each service to its Better Stack monitor on the Repositories page.</p>
@@ -143,9 +144,9 @@ function NotificationsPanel() {
   const list = usePoll<Notifier[]>("/api/v1/notifications", 60_000);
   if (!list.data) return null;
   return (
-    <section className="panel">
+    <section className="panel xl:col-span-2">
       <div className="border-b border-line px-5 py-3">
-        <h2 className="text-sm font-semibold">Notifications</h2>
+        <h2 className="section-title">Notifications</h2>
         <p className="mt-0.5 text-sm text-muted">
           Posts when an incident opens or resolves, when the repair agent opens a draft PR, and when it needs a human. Sent with the 5-minute check. PagerDuty only gets opens and resolves.
         </p>
@@ -197,7 +198,7 @@ function NotifierRow({ notifier: n, onChange }: { notifier: Notifier; onChange: 
               <span className="sr-only">{n.label} {form.field}</span>
               <input className="input font-mono" type="password" autoComplete="off" placeholder={form.placeholder} value={value} onChange={(e) => setValue(e.target.value)} required />
             </label>
-            <button type="submit" className="btn btn-primary" disabled={pending}>Save</button>
+            <Button type="submit" variant="primary" isLoading={pending} label="Save" />
           </form>
         )}
       </div>
@@ -238,7 +239,7 @@ function SentryPanel() {
   const last = c.last_delivery;
   return (
     <section className="panel space-y-3 p-5">
-      <h2 className="text-sm font-semibold">Sentry issues</h2>
+      <h2 className="section-title">Sentry issues</h2>
       {!c.configured ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted">Unresolved Sentry issues open an incident on the mapped service, and close it once they&apos;re resolved or ignored.</p>
@@ -294,7 +295,7 @@ function VercelPanel() {
   if (!conn.data) return null;
   return (
     <section className="panel p-5">
-      <h2 className="text-sm font-semibold">Vercel deployments</h2>
+      <h2 className="section-title">Vercel deployments</h2>
       {conn.data.connected ? (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="badge tone-ok">Connected as {conn.data.login}{conn.data.team_id ? ` · team ${conn.data.team_id}` : ""}</span>
@@ -317,7 +318,7 @@ function VercelPanel() {
               <span className="sr-only">Team ID (optional)</span>
               <input className="input font-mono" placeholder="team_… (optional)" value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })} />
             </label>
-            <button type="submit" className="btn btn-primary" disabled={pending}>Connect Vercel</button>
+            <Button type="submit" variant="primary" isLoading={pending} label="Connect Vercel" />
           </div>
         </form>
       )}
@@ -347,7 +348,7 @@ function OpenAIPanel() {
   if (!conn.data) return null;
   return (
     <section className="panel p-5">
-      <h2 className="text-sm font-semibold">OpenAI API key <span className="font-normal text-muted">(optional)</span></h2>
+      <h2 className="section-title">OpenAI API key <span className="font-normal text-muted">(optional)</span></h2>
       {conn.data.configured ? (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="badge tone-ok">Your key · ends in {conn.data.hint}</span>
@@ -367,7 +368,7 @@ function OpenAIPanel() {
               <input className="input font-mono" type="password" autoComplete="off" placeholder="sk-…" value={key}
                 onChange={(e) => setKey(e.target.value)} required minLength={20} />
             </label>
-            <button type="submit" className="btn btn-primary" disabled={pending}>Save key</button>
+            <Button type="submit" variant="primary" isLoading={pending} label="Save key" />
           </div>
         </form>
       )}

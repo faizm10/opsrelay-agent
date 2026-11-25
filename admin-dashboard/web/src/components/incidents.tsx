@@ -18,7 +18,7 @@ export function IncidentRow({ incident }: { incident: Incident }) {
       <Link href={`/incidents/${encodeURIComponent(incident.id)}`}
         className="block px-4 py-3 transition hover:bg-hover focus-visible:bg-hover sm:px-5 md:grid md:grid-cols-[minmax(0,1fr)_auto_9rem] md:items-center md:gap-6">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-ink">{incident.title.startsWith(incident.service_name) ? incident.title : `${incident.service_name} · ${incident.title}`}</p>
+          <p className="break-words text-sm font-medium md:truncate text-ink">{incident.title.startsWith(incident.service_name) ? incident.title : `${incident.service_name} · ${incident.title}`}</p>
           <p className="truncate text-xs text-muted">
             {incident.evidence.source === "betterstack" ? "Better Stack alert"
               : incident.evidence.source === "dependabot" ? "Dependabot security alerts"
@@ -43,7 +43,7 @@ export function IncidentList({ title, incidents, empty }: { title: string; incid
   const id = `${title.toLowerCase().replace(/\W+/g, "-")}-title`;
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className="mb-2 text-sm font-semibold">
+      <h2 id={id} className="section-title mb-3">
         {title}{incidents.length > 0 && <span className="tabular ml-1.5 font-normal text-muted">{incidents.length}</span>}
       </h2>
       {incidents.length === 0 ? (

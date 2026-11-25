@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GitBranch, Trash2 } from "lucide-react";
@@ -45,7 +47,7 @@ export default function Repositories() {
               </p>
             )}
             <section className="panel">
-              <h2 className="border-b border-line px-5 py-3 text-sm font-semibold">Services</h2>
+              <h2 className="border-b border-line px-5 py-3 section-title">Services</h2>
               {mapped.data.length === 0 ? (
                 <p className="px-5 py-4 text-sm text-muted">No repositories mapped yet.</p>
               ) : (
@@ -134,7 +136,7 @@ function AddRepository({ onAdded }: { onAdded: () => void }) {
 
   return (
     <form className="panel space-y-4 p-5" onSubmit={submit}>
-      <h2 className="text-sm font-semibold">Add a repository</h2>
+      <h2 className="section-title">Add a repository</h2>
       {repos.error && <p className="text-sm text-crit" role="alert">{repos.error.message}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
@@ -166,9 +168,7 @@ function AddRepository({ onAdded }: { onAdded: () => void }) {
         </label>
       </div>
       {error && <p className="text-sm text-crit" role="alert">{error}</p>}
-      <button type="submit" className="btn btn-primary" disabled={pending || !options}>
-        Add repository
-      </button>
+      <Button type="submit" variant="primary" isLoading={pending} isDisabled={!options} label="Add repository" />
     </form>
   );
 }

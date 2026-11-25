@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
 import { useEffect, useState } from "react";
 import { type Account, selectWorkspace, send } from "@/lib/api";
 import { Logo } from "@/components/ui";
@@ -39,10 +40,10 @@ export default function SignInPage() {
   if (!mode) return null;
   const title = { "sign-in": "Sign in to OpsRelay", "sign-up": "Create your OpsRelay account" }[mode];
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <form onSubmit={submit} className="panel w-full max-w-sm space-y-4 p-6">
+    <main className="grid min-h-screen place-items-center bg-page px-4 py-10 text-ink">
+      <form onSubmit={submit} className="panel w-full max-w-md space-y-5 p-6 sm:p-10">
         <Logo />
-        <h1 className="text-base font-semibold">{title}</h1>
+        <h1 className="page-title !text-5xl">{title}</h1>
         <label className="block space-y-1.5">
           <span className="label">Email</span>
           <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
@@ -55,9 +56,8 @@ export default function SignInPage() {
           />
         </label>
         {error && <p className="text-sm text-crit" role="alert">{error}</p>}
-        <button type="submit" className="btn btn-primary w-full justify-center" disabled={pending}>
-          {mode === "sign-up" ? "Create account" : "Sign in"}
-        </button>
+        <Button type="submit" variant="primary" size="lg" width="100%" isLoading={pending}
+          label={mode === "sign-up" ? "Create account" : "Sign in"} />
         <button
           type="button" className="w-full text-center text-xs text-muted hover:text-ink"
           onClick={() => { setMode(mode === "sign-in" ? "sign-up" : "sign-in"); setError(""); }}
@@ -65,6 +65,6 @@ export default function SignInPage() {
           {mode === "sign-in" ? "No account yet? Create one" : "Already have an account? Sign in"}
         </button>
       </form>
-    </div>
+    </main>
   );
 }

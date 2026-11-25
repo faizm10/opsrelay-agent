@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { AssistantChat } from "@/components/assistant-chat";
 import { Mascot } from "@/components/mascot";
+import { DashboardTheme } from "@/components/dashboard-theme";
 import "./globals.css";
 
+const display = Instrument_Serif({ weight: "400", subsets: ["latin"], variable: "--font-display", display: "swap" });
 const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
@@ -15,12 +17,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable} ${display.variable}`}>
       <body>
-        {children}
-        <Mascot />
-        <AssistantChat />
-        <Analytics />
+        <DashboardTheme>
+          {children}
+          <Mascot />
+          <AssistantChat />
+        </DashboardTheme>
+        {process.env.VERCEL && <Analytics />}
       </body>
     </html>
   );

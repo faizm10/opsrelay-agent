@@ -8,10 +8,10 @@ import { STATUS_POLL_MS, type Summary, usePoll } from "@/lib/api";
 import { type MascotTone, mascotMessage } from "@/lib/mascot";
 
 const TONE: Record<MascotTone, { light: string; ring: string }> = {
-  ok: { light: "#0ca30c", ring: "border-ok/40" },
+  ok: { light: "#91cf95", ring: "border-ok/40" },
   warn: { light: "#e5a000", ring: "border-warn/50" },
   crit: { light: "#e5484d", ring: "border-crit/50" },
-  accent: { light: "#3987e5", ring: "border-accent/50" },
+  accent: { light: "#83b796", ring: "border-accent/50" },
 };
 const CLOSED_KEY = "opsrelay-mascot-closed";
 
@@ -85,14 +85,14 @@ export function Mascot() {
         className="rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <svg viewBox="0 0 44 48" className="h-10 w-9 sm:h-12 sm:w-11" aria-hidden="true">
-          <line x1="22" y1="4" x2="22" y2="11" stroke="#2f343c" strokeWidth="2" strokeLinecap="round" />
+          <line x1="22" y1="4" x2="22" y2="11" stroke="#42644e" strokeWidth="2" strokeLinecap="round" />
           <circle cx="22" cy="4" r="3" fill={tone.light} />
           {attention && (
             <circle cx="22" cy="4" r="3" fill={tone.light} className="origin-[22px_4px] motion-safe:animate-ping2 motion-reduce:hidden" />
           )}
-          <rect x="3" y="11" width="38" height="34" rx="10" fill="#16191e" stroke="#2f343c" strokeWidth="1.5" />
-          <circle cx="15" cy="23" r="2.4" fill="#e6e8eb" />
-          <circle cx="29" cy="23" r="2.4" fill="#e6e8eb" />
+          <rect x="3" y="11" width="38" height="34" rx="10" fill="#253c31" stroke="#42644e" strokeWidth="1.5" />
+          <circle cx="15" cy="23" r="2.4" fill="#f2f3d6" />
+          <circle cx="29" cy="23" r="2.4" fill="#f2f3d6" />
           <path d="M10 34h6l2.5-4 3.5 7 2.5-5h9.5" fill="none" stroke={tone.light} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>

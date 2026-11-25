@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import type { Status } from "./api";
 
 export const STATUS_META: Record<Status, { label: string; color: string; text: string; soft: string }> = {
-  operational: { label: "Operational", color: "#0ca30c", text: "text-ok", soft: "bg-ok/10 border-ok/25" },
-  degraded: { label: "Degraded", color: "#fab219", text: "text-warn", soft: "bg-warn/10 border-warn/25" },
-  down: { label: "Down", color: "#d03b3b", text: "text-crit", soft: "bg-crit/10 border-crit/30" },
+  operational: { label: "Operational", color: "#297346", text: "text-ok", soft: "bg-ok/10 border-ok/25" },
+  degraded: { label: "Degraded", color: "#92600d", text: "text-warn", soft: "bg-warn/10 border-warn/25" },
+  down: { label: "Down", color: "#b83c37", text: "text-crit", soft: "bg-crit/10 border-crit/30" },
   unknown: { label: "Unknown", color: "#646a76", text: "text-muted", soft: "bg-raised border-line-strong" },
 };
 
