@@ -64,7 +64,7 @@ export function AssistantChat() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-medium text-white shadow-lg transition hover:bg-ink"
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-md transition hover:bg-ink/85"
       >
         <MessageCircle className="h-4 w-4" aria-hidden="true" /> Ask the assistant
       </button>

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { AssistantChat } from "@/components/assistant-chat";
-import { Mascot } from "@/components/mascot";
 import { DashboardTheme } from "@/components/dashboard-theme";
 import { Toaster } from "@/components/sonner";
 import "./globals.css";
@@ -22,7 +21,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <DashboardTheme>
           {children}
-          <Mascot />
           <AssistantChat />
           <Toaster />
         </DashboardTheme>

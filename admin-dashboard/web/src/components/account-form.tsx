@@ -50,7 +50,7 @@ export function AccountForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     <main className="grid min-h-screen place-items-center bg-page px-4 py-10 text-ink">
       <form onSubmit={submit} className="panel w-full max-w-md space-y-5 p-6 sm:p-10">
         <Logo />
-        <h1 className="page-title !text-5xl">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         <label className="block space-y-1.5">
           <span className="label">Email</span>
           <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

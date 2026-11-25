@@ -121,8 +121,7 @@ export function StatusLegend() {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted">
       {items.map(([s, label]) => (
         <span key={s} className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: barColor(s) }} />
-          <StatusIcon status={s} className="h-3 w-3" />
+          <span className="h-2 w-2 rounded-full" style={{ background: barColor(s) }} aria-hidden="true" />
           {label}
         </span>
       ))}
