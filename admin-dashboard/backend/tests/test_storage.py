@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import mongomock
 import pytest
+from cryptography.fernet import Fernet
 
 from uptime.storage import mongo
 from uptime.storage.mongo import MongoStorage
@@ -136,7 +137,7 @@ def test_mongo_describe_never_leaks_credentials():
     assert "S3cr3t" not in str(info) and "opsuser" not in str(info)
 
 
-def test_connector_credentials_are_encrypted_at_rest(storage):
+def test_connector_credentials_are_encrypted_at_rest(storage, monkeypatch):
     from uptime.sealing import PREFIX, reseal_all
     from uptime.storage.mongo import ACCOUNTS
 
@@ -159,3 +160,10 @@ def test_connector_credentials_are_encrypted_at_rest(storage):
     assert storage.get_doc("github", "w1")["token"] == "ghp_old"
     assert reseal_all(storage) == 1
     assert raw("github", "w1")["token"].startswith(PREFIX) and storage.get_doc("github", "w1")["token"] == "ghp_old"
+
+    # After OPSRELAY_SECRET_KEY is rotated, credentials sealed with the old key read as not set until saved again.
+    storage.put_doc("notify", "w1:slack", {"workspace_id": "w1", "kind": "slack", "url": "https://hooks.slack.com/x"})
+    monkeypatch.setenv("OPSRELAY_SECRET_KEY", Fernet.generate_key().decode())
+    assert storage.get_doc("github", "w1") is None and storage.find_docs("notify", "workspace_id", "w1") == []
+    storage.put_doc("github", "w1", {"token": "ghp_new", "login": "octo"})
+    assert storage.get_doc("github", "w1")["token"] == "ghp_new"

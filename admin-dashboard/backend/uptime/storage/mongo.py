@@ -422,11 +422,12 @@ class MongoStorage:
         return unseal(kind, {k: v for k, v in doc.items() if k != "_id"}) if doc else None
 
     def find_docs(self, kind: str, field: str, value: str) -> list[dict[str, Any]]:
-        return [unseal(kind, {k: v for k, v in d.items() if k != "_id"})
-                for d in self.db[ACCOUNTS + kind].find({field: value}).sort("_id", ASCENDING)]
+        docs = (unseal(kind, {k: v for k, v in d.items() if k != "_id"}) for d in self.db[ACCOUNTS + kind].find({field: value}).sort("_id", ASCENDING))
+        return [d for d in docs if d]
 
     def all_docs(self, kind: str) -> list[dict[str, Any]]:
-        return [unseal(kind, {k: v for k, v in d.items() if k != "_id"}) for d in self.db[ACCOUNTS + kind].find().sort("_id", ASCENDING)]
+        docs = (unseal(kind, {k: v for k, v in d.items() if k != "_id"}) for d in self.db[ACCOUNTS + kind].find().sort("_id", ASCENDING))
+        return [d for d in docs if d]
 
     def delete_doc(self, kind: str, doc_id: str) -> None:
         self.db[ACCOUNTS + kind].delete_one({"_id": doc_id})

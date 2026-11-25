@@ -295,10 +295,11 @@ class SqliteStorage:
     def find_docs(self, kind: str, field: str, value: str) -> list[dict[str, Any]]:
         rows = self._all("SELECT doc FROM account_docs WHERE kind = ? AND json_extract(doc, ?) = ? ORDER BY id",
                          (kind, f"$.{field}", value))
-        return [unseal(kind, json.loads(r["doc"])) for r in rows]
+        return [d for r in rows if (d := unseal(kind, json.loads(r["doc"])))]
 
     def all_docs(self, kind: str) -> list[dict[str, Any]]:
-        return [unseal(kind, json.loads(r["doc"])) for r in self._all("SELECT doc FROM account_docs WHERE kind = ? ORDER BY id", (kind,))]
+        rows = self._all("SELECT doc FROM account_docs WHERE kind = ? ORDER BY id", (kind,))
+        return [d for r in rows if (d := unseal(kind, json.loads(r["doc"])))]
 
     def delete_doc(self, kind: str, doc_id: str) -> None:
         self._exec("DELETE FROM account_docs WHERE kind = ? AND id = ?", (kind, doc_id))
