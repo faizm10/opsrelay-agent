@@ -35,7 +35,6 @@ AGENT_STEPS = "workflow_steps"  # owned by agents/mongodb.py; read-only here
 AGENT_MEMORIES = "memories"  # owned by agents/memory.py; read-only here
 RL_EXPERIENCES = "rl_experiences"  # owned by agents/rl_policy.py; read-only here
 RL_TRAINING_RUNS = "rl_training_runs"  # owned by agents/rl_policy.py; read-only here
-CHECKOUT_RECOVERIES = "checkout_recoveries"  # owned by agents/recovery.py; read-only here
 MOCK_INCIDENTS = "mock_incidents"  # owned by agents/mock_incidents.py; read-only here
 
 
@@ -381,8 +380,7 @@ class MongoStorage:
 
     # Step evidence keys safe to show. Past-fix summaries and diffs stay out: they could describe the fix.
     _STEP_FIELDS = ("tests_passed", "changed_files", "summary", "branch", "pr_number", "url", "recovered_existing",
-                    "memory_id", "pr_state", "status", "reason", "rl_action", "fresh_checkout_check_id",
-                    "interrupted_checkouts_settled")
+                    "memory_id", "pr_state", "status", "reason", "rl_action")
 
     def get_agent_run(self, uptime_incident_id: str) -> dict[str, Any] | None:
         doc = self.db[AGENT_INCIDENTS].find_one(
@@ -390,7 +388,7 @@ class MongoStorage:
             {"_id": 1, "status": 1, "stage": 1, "status_reason": 1, "created_at": 1, "updated_at": 1,
              "lease.expires_at": 1, "patch.summary": 1, "patch.root_cause": 1, "patch.changed_files": 1,
              "patch.added_tests": 1, "patch.recommendation": 1, "verification": 1, "pr.url": 1,
-             "pr.number": 1, "review.pr_state": 1, "deployed_fix_verified": 1},
+             "pr.number": 1, "review.pr_state": 1},
         )
         if doc is None:
             return None
@@ -407,35 +405,6 @@ class MongoStorage:
                                "test_output": (verification.get("test_output") or "")[-1500:]}
         doc["id"] = str(doc.pop("_id"))
         return {"incident": doc, "steps": steps}
-
-    def get_recovery(self, uptime_incident_id: str) -> dict[str, Any] | None:
-        """Reconciliation of the checkouts this incident interrupted (read-only). Request IDs and
-        lease internals stay out; checkout IDs, outcomes, evidence states and workers are shown."""
-        doc = self.db[CHECKOUT_RECOVERIES].find_one({"_id": uptime_incident_id}, {"lease": 0})
-        if doc is None:
-            return None
-        attempts = []
-        for cid in doc.get("affected_checkout_ids", []):
-            a = (doc.get("attempts") or {}).get(cid) or {}
-            evidence = a.get("evidence") or {}
-            attempts.append({
-                "checkout_id": cid, "order_id": a.get("order_id"), "confirmation_id": a.get("confirmation_id"),
-                "outcome": a.get("outcome"), "final": bool(a.get("final")), "reason": a.get("reason"),
-                "missing": a.get("missing") or [], "state_at_discovery": a.get("state_at_discovery"),
-                "customer_saw": a.get("customer_saw"),
-                "order": {k: (evidence.get("order") or {}).get(k) for k in ("state", "checked_at")},
-                "confirmation": {k: (evidence.get("confirmation") or {}).get(k) for k in ("state", "status", "checked_at")},
-                "retried": bool(a.get("retry_intent")), "verified_result": a.get("verified_result"),
-            })
-        return {"phase": doc.get("phase"), "counts": doc.get("counts") or {}, "workers": doc.get("workers") or [],
-                "fresh_checkout": doc.get("fresh_checkout"), "created_at": doc.get("created_at"),
-                "updated_at": doc.get("updated_at"), "completed_at": doc.get("completed_at"),
-                "fix_verification": doc.get("fix_verification"), "attempts": attempts,
-                "events": [{k: e.get(k) for k in ("at", "worker_id", "type", "message", "checkout_id")}
-                           for e in (doc.get("events") or [])[-40:]]}
-
-    def supports_recovery(self) -> bool:
-        return True
 
     # --------------------------------------------------------------- accounts
     def insert_doc(self, kind: str, doc_id: str, doc: dict[str, Any]) -> bool:

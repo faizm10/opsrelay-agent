@@ -260,7 +260,7 @@ def test_publishes_branch_commit_and_pr(fake):
     assert fake.files_at("main")[PRICING] != FIXED              # main is never modified
     body = fake.pulls[0]["body"]
     assert "101-1" in body and "percent" in body and "9 passed" in body and PRICING in body
-    assert "never merged automatically" in body
+    assert "The agent never merges on its own." in body
     assert result.to_dict()["pr_number"] == 1                   # snake_case contract for Dev 3
 
 
@@ -486,8 +486,8 @@ def test_caller_title_and_context_notes_reach_the_pr(fake):
     publisher(fake).create_or_find_pr(req)
     pull = fake.pulls[0]
     assert pull["title"] == "[OpsRelay] Fix shopping CI failure (run 101)"
-    assert "## Context from OpsRelay memory" in pull["body"] and "(0.91) discount bug" in pull["body"]
-    assert "never merged automatically" in pull["body"]
+    assert "<summary>Similar past incidents</summary>" in pull["body"] and "(0.91) discount bug" in pull["body"]
+    assert "The agent never merges on its own." in pull["body"]
 
 
 def test_context_notes_cannot_break_the_incident_marker(fake):
@@ -509,5 +509,5 @@ def test_orchestrator_adapter_passes_title_and_memory_to_the_pr(fake):
                                 "[OpsRelay] Fix shopping CI failure", body, patch)
     pull = fake.pulls[0]
     assert out["number"] == 1 and pull["title"] == "[OpsRelay] Fix shopping CI failure"
-    assert "(0.88) earlier discount bug" in pull["body"] and "Application | shopping" in pull["body"]
+    assert "(0.88) earlier discount bug" in pull["body"] and "· shopping ·" in pull["body"]
     assert "OpsRelay incident `101-1`" not in pull["body"]      # only the memory block is copied

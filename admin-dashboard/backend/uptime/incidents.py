@@ -3,11 +3,7 @@
 * A service has at most one open incident (enforced in storage, not just here).
 * Consecutive failing checks during one outage update that incident; they never open new ones.
 * degraded -> down escalates the same incident (and down -> degraded de-escalates it).
-* The first operational check (``recovery_threshold``) resolves it and records the duration,
-  unless the service declares records an outage can interrupt (``recovery``). Then the
-  service is operational again but the incident stays open in its ``recovering`` phase
-  until the OpsRelay recovery worker reports every interrupted record settled
-  (agents/recovery.py). A failing check during recovery puts the incident back in outage.
+* The first operational check (``recovery_threshold``) resolves it and records the duration.
 * ``unknown`` results (monitor errors) neither open nor resolve incidents.
 """
 
@@ -83,13 +79,6 @@ def apply_check(storage: Storage, service: ServiceConfig, check: CheckRecord) ->
             else:  # lost a race with another writer: update the incident that already exists
                 incident = storage.get_open_incident(service.id)
         elif incident is not None:
-            if incident.recovery_phase is not None:
-                incident.recovery_phase = None
-                incident.service_recovered_at = None
-                ev = IncidentEvent(at=at, type="relapsed", status=check.status, check_id=check.id,
-                                   message=f"Failing again while recovering interrupted records: {check.summary}")
-                incident.events.append(ev)
-                events.append(ev)
             incident.failed_check_count += 1
             incident.last_failure_at = at
             incident.last_check_id = check.id
@@ -115,48 +104,20 @@ def apply_check(storage: Storage, service: ServiceConfig, check: CheckRecord) ->
             incident.summary = check.summary
             storage.save_incident(incident)
     elif incident is not None and state.consecutive_successes >= service.recovery_threshold:
-        if incident.recovery_phase == "recovering":
-            recovery = storage.get_recovery(incident.id) or {}
-            if recovery.get("phase") == "complete":
-                settled = len(recovery.get("attempts") or [])
-                events.append(_resolve(storage, service, incident, check, at,
-                                       f"all {settled} interrupted checkout(s) have a verified outcome"))
-                incident = None
-        elif _needs_recovery(storage, service, incident, check):
-            incident.recovery_phase = "recovering"
-            incident.service_recovered_at = at
-            incident.recovery_check_id = check.id
-            pending = (check.functional.details.get("interrupted_checkouts") if check.functional else None) or 0
-            ev = IncidentEvent(at=at, type="service_recovered", status="operational", check_id=check.id,
-                               message=f"A fresh checkout passed and the service is operational. Recovering "
-                                       f"interrupted checkouts ({pending} without a final outcome).")
-            incident.events.append(ev)
-            events.append(ev)
-            storage.save_incident(incident)
-        else:
-            events.append(_resolve(storage, service, incident, check, at, "all checks passing again"))
-            incident = None
+        events.append(_resolve(storage, service, incident, check, at, "all checks passing again"))
+        incident = None
 
     state.open_incident_id = incident.id if incident is not None and incident.state == "open" else None
     storage.put_state(state)
     return events
 
 
-def _needs_recovery(storage: Storage, service: ServiceConfig, incident: Incident, check: CheckRecord) -> bool:
-    if service.recovery != "checkout_attempts" or not storage.supports_recovery():
-        return False
-    interrupted = (check.functional.details.get("interrupted_checkouts") if check.functional else None) or 0
-    return interrupted > 0 or storage.get_recovery(incident.id) is not None
-
-
 def _resolve(storage: Storage, service: ServiceConfig, incident: Incident, check: CheckRecord, at: datetime,
              why: str) -> IncidentEvent:
     incident.state = "resolved"
     incident.resolved_at = at
-    incident.recovery_phase = None
     incident.title = f"{service.name} was {'down' if incident.peak_severity == 'down' else 'degraded'}"
-    if incident.service_recovered_at is None:
-        incident.recovery_check_id = check.id
+    incident.recovery_check_id = check.id
     minutes = incident.elapsed_seconds(at) / 60
     ev = IncidentEvent(at=at, type="resolved", status="operational", check_id=check.id,
                        message=f"Recovered: {why} after {minutes:.1f} min.")

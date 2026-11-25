@@ -1,8 +1,7 @@
 """Live incident intake: Taha's uptime monitor -> the agents' incidents table.
 
 Taha's monitor (admin-dashboard/backend/uptime) writes ``uptime_incidents`` to the same
-MongoDB database when it detects that Shopping (NovaMart) or Messaging (NovaConnect) is
-down or failing its functional probe. It never calls the agents itself. ``LiveIntake.poll``
+MongoDB database when a monitored service is down or failing its functional probe. It never calls the agents itself. ``LiveIntake.poll``
 reads new open uptime incidents (read only) and records each one once as a
 ``source="live"`` incident, which the orchestrator then runs through the same stages as a
 CI failure: memory -> diagnose/repair -> PR intent -> draft PR -> memory.

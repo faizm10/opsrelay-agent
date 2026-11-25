@@ -17,5 +17,3 @@ Only `main` is supported; fixes land there and deploy from it.
   a protected branch or leak repository secrets is in scope.
 - The dashboard is multi-tenant: reading or changing another workspace's sites, incidents,
   repositories or Better Stack settings is in scope.
-- NovaMart and NovaConnect are deliberately buggy demo apps for the agent to repair. Their bugs are not
-  vulnerabilities unless they affect OpsRelay itself.

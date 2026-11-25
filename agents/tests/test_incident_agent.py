@@ -1,18 +1,7 @@
-"""The incident agent end to end: uptime incident -> incidents table -> deep dive -> draft PR -> human.
+"""Uptime incidents through intake and the orchestrator: what is investigated, and which incidents
+go to a human without a model call or a code change. Mongomock, a fake GitHub and a stub model."""
 
-Uses Taha's real NovaMart backend (shopping/backend) in a throwaway repo, Mo's orchestrator on
-mongomock, a fake GitHub and a stub model. The scenario is the hard case: the discount bug is
-live, but the tests that would catch it are missing, so the agent must write a regression test
-that fails on the deployed code before it may propose a fix.
-"""
-
-import importlib.util
-import io
-import subprocess
-import sys
-import tarfile
 from datetime import timedelta
-from pathlib import Path
 
 import mongomock
 import pytest
@@ -24,58 +13,10 @@ from agents.fakes import FakeGitHub
 from agents.github_publisher import validate_request
 from agents.github_types import PatchFile, PublishRequest
 from agents.intake import UPTIME_INCIDENTS, LiveIntake, handoff_from_uptime
-from agents.investigator import _EvidenceDraft
-from agents.regression import _RegressionTestDraft
 
-from .support import StubLLM, _git, candidate, diagnosis_draft, patch_draft
+from .support import StubLLM
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 REPO = "faizm10/agentic-mongodb"
-PRICING = "shopping/backend/app/pricing.py"
-UNCOVERING = ["test_discounts.py", "test_checkout_api.py", "test_health_and_catalog.py", "test_demo_outages.py"]
-
-REGRESSION_TEST = '''"""Regression test written by OpsRelay for the live checkout probe failure."""
-
-import pytest
-
-from app import pricing
-
-pytestmark = pytest.mark.opsrelay(component="pricing", capability="discounts")
-
-
-def test_percent_promotion_takes_the_advertised_share():
-    assert pricing.compute_discount(20_000, pricing.PROMOTIONS["WELCOME10"]) == 2_000
-'''
-
-
-def _bug():
-    spec = importlib.util.spec_from_file_location("novamart_inject_bug_agent", REPO_ROOT / "shopping/inject_bug.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module.BUGS["discount"]
-
-
-@pytest.fixture(scope="module")
-def novamart(tmp_path_factory):
-    """main: NovaMart -> tests that cover discounts removed -> discount bug deployed."""
-    tree = subprocess.run(["git", "-C", str(REPO_ROOT), "archive", "HEAD", "shopping/backend"], capture_output=True)
-    if tree.returncode != 0 or not tree.stdout:
-        pytest.skip("shopping/backend is not committed in this checkout")
-    repo = tmp_path_factory.mktemp("novamart-live")
-    with tarfile.open(fileobj=io.BytesIO(tree.stdout)) as tar:
-        tar.extractall(repo, filter="data")
-    _git(repo, "init", "-q", "-b", "main")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "novamart")
-    for name in UNCOVERING:
-        (repo / "shopping/backend/tests" / name).unlink()
-    _git(repo, "commit", "-q", "-am", "tests: trim slow suites")
-    bug = _bug()
-    path = repo / "shopping" / bug.file
-    path.write_text(path.read_text().replace(bug.original, bug.buggy, 1))
-    _git(repo, "commit", "-q", "-am", "pricing: tweak promo math")
-    return repo, _git(repo, "rev-parse", "HEAD"), bug
 
 
 def uptime_doc(started_at, route="investigate", **overrides):
@@ -103,29 +44,6 @@ def uptime_doc(started_at, route="investigate", **overrides):
     return doc
 
 
-def agent_llm():
-    diagnosis = diagnosis_draft(
-        likely_cause="compute_discount divides percentage promotions by 10 instead of 100 (10x discount).",
-        explanation="The checkout probe expected WELCOME10 on $200 to be $20 off but got $200 off. "
-                    "The latest commit changed the divisor in compute_discount.",
-        evidence=[
-            _EvidenceDraft(source="live_probe", reference="live_probe",
-                           excerpt='source: backend/app/pricing.py::compute_discount',
-                           supports="The failing probe check names compute_discount."),
-            _EvidenceDraft(source="source_file", reference=PRICING,
-                           excerpt="discount = subtotal_cents * promotion.value // 10",
-                           supports="The deployed code divides by 10."),
-        ],
-        suspect_files=[PRICING],
-    )
-    regression = _RegressionTestDraft(outcome="test", slug="percent_promotion_share", content=REGRESSION_TEST,
-                                      asserts="WELCOME10 takes 10% off", review_reason=None)
-    bug = _bug()
-    fix = patch_draft(candidate(path=PRICING, find=bug.buggy, replace=bug.original,
-                                summary="Divide percentage promotions by 100."))
-    return StubLLM({"_DiagnosisDraft": diagnosis, "_RegressionTestDraft": regression, "_PatchDraft": fix})
-
-
 @pytest.fixture
 def db():
     db = mongomock.MongoClient(tz_aware=True)["opsrelay_agent_test"]
@@ -134,13 +52,11 @@ def db():
 
 
 @pytest.fixture
-def agent(db, novamart, monkeypatch):
-    monkeypatch.delenv("OPSRELAY_APPS_CONFIG")  # Taha's real layout
-    repo, sha, _ = novamart
-    github, llm = FakeGitHub(), agent_llm()
-    orch = o.Orchestrator(github, Repairer(repo_path=str(repo), llm=llm), db=db, worker_id="test-worker")
-    intake = LiveIntake(REPO, db=db, resolve_sha=lambda: sha)
-    return orch, intake, github, llm, sha
+def agent(db, tmp_path):
+    github, llm = FakeGitHub(), StubLLM({})  # any model call fails the test
+    orch = o.Orchestrator(github, Repairer(repo_path=str(tmp_path), llm=llm), db=db, worker_id="test-worker")
+    intake = LiveIntake(REPO, db=db, resolve_sha=lambda: "a" * 40)
+    return orch, intake, github, llm
 
 
 def test_intake_records_each_uptime_incident_once(db):
@@ -172,75 +88,8 @@ def test_intake_skips_bug_already_reported_by_ci(db):
     assert m.incidents(db).count_documents({"source": "live"}) == 0
 
 
-def test_alert_is_investigated_only_once_its_repo_agent_is_on_and_reports_by_default(db, agent):
-    orch, intake, github, _, _ = agent
-    alert = uptime_doc(m.utcnow(), _id="BS-9001-abc123", service_id="demo:shop", app=REPO)
-    alert["evidence"].update(source="betterstack", cause="Status 500", betterstack_incident_id="9001")
-    db[UPTIME_INCIDENTS].insert_one(alert)
-    db["opsrelay_repos"].insert_one({"_id": "demo:shop", "repo": REPO, "agent": {"enabled": False, "mode": "report_only", "app": "shopping"}})
-    assert intake.poll() == [], "agent off: the alert is not investigated"
-
-    db["opsrelay_repos"].update_one({"_id": "demo:shop"}, {"$set": {"agent.enabled": True}})
-    [iid] = intake.poll()
-    orch.run_pending()
-
-    inc = m.incidents(db).find_one({"_id": iid})
-    assert inc["live"]["alert"]["cause"] == "Status 500" and inc["app"] == "shopping"
-    assert inc["status"] == m.STATUS_REPORTED, inc.get("status_reason")
-    assert inc["patch"]["summary"] and inc["recommendation"]
-    assert github.find_pr(REPO, o.branch_for(inc)) is None, "report-only opens no PR"
-
-
-def test_live_bug_missed_by_tests_gets_regression_test_fix_and_draft_pr(db, agent):
-    orch, intake, github, llm, sha = agent
-    db[UPTIME_INCIDENTS].insert_one(uptime_doc(m.utcnow()))
-    [iid] = intake.poll()
-
-    orch.run_pending()
-
-    inc = m.incidents(db).find_one({"_id": iid})
-    assert inc["status"] == m.STATUS_AWAITING_MERGE, inc.get("status_reason")
-    patch = inc["patch"]
-    [added] = patch["added_tests"]
-    assert added == "shopping/backend/tests/test_opsrelay_percent_promotion_share.py"
-    assert sorted(patch["files"]) == sorted([PRICING, added])
-    assert "// 100" in patch["files"][PRICING] and patch["files"][added] == REGRESSION_TEST
-    assert f"+++ b/{added}" in patch["diff"] and "-        discount = subtotal_cents * promotion.value // 10" in patch["diff"]
-    assert "added `shopping/backend/tests/test_opsrelay_percent_promotion_share.py`" in patch["investigation"]
-    assert "promotion_discounts" in patch["investigation"]
-
-    pr = github.find_pr(REPO, inc["pr_intent"]["branch"])
-    assert pr["draft"] and pr["state"] == "open" and pr["files"] == sorted([PRICING, added])
-    assert inc["pr_intent"]["title"] == f"[OpsRelay] shopping: {inc['patch']['summary'].splitlines()[0]}"  # names the fix
-    # The regression test was written once, before any fix, and the model saw the probe failure.
-    names = [name for name, _, _ in llm.calls]
-    assert names.index("_RegressionTestDraft") < names.index("_PatchDraft")
-    assert "backend/app/pricing.py::compute_discount" in llm.calls[0][2]
-
-    # Human approval: nothing is merged until a person does it.
-    assert orch.check_reviews() == []
-    github.set_state(REPO, inc["pr_intent"]["branch"], "merged")
-    assert orch.check_reviews() == [(iid, m.STATUS_RESOLVED)]
-    assert m.incidents(db).find_one({"_id": iid})["status"] == m.STATUS_RESOLVED
-    assert m.memories(db).find_one({"source_incident_id": iid})["active"] is True
-
-
-def test_rejected_pr_marks_incident_rejected_and_forgets_the_fix(db, agent):
-    orch, intake, github, _, _ = agent
-    db[UPTIME_INCIDENTS].insert_one(uptime_doc(m.utcnow()))
-    [iid] = intake.poll()
-    orch.run_pending()
-    branch = m.incidents(db).find_one({"_id": iid})["pr_intent"]["branch"]
-
-    github.set_state(REPO, branch, "closed")
-
-    assert orch.check_reviews() == [(iid, m.STATUS_REJECTED)]
-    assert m.memories(db).find_one({"source_incident_id": iid})["active"] is False
-    assert orch.check_reviews() == []  # recorded once
-
-
 def test_service_down_goes_to_a_human_without_model_or_code_change(db, agent):
-    orch, intake, github, llm, _ = agent
+    orch, intake, github, llm = agent
     db[UPTIME_INCIDENTS].insert_one(uptime_doc(m.utcnow(), route="service_health"))
     [iid] = intake.poll()
 
@@ -254,7 +103,7 @@ def test_service_down_goes_to_a_human_without_model_or_code_change(db, agent):
 
 
 def test_third_party_outage_goes_to_a_human_without_model_or_code_change(db, agent):
-    orch, intake, github, llm, _ = agent
+    orch, intake, github, llm = agent
     doc = uptime_doc(m.utcnow())
     doc["evidence"]["latest_failure"]["probes"]["functional"]["details"]["failures"] = [
         {"check": "payment_provider", "component": "payments", "source": "external: Stripe API",
@@ -291,25 +140,3 @@ def test_publisher_only_creates_agent_regression_tests(path, ok):
     req = PublishRequest(incident_id="live-upt-1", base_sha="a" * 40, root_cause="x", tests_passed=True,
                          files=[PatchFile(path=path, content="x = 1\n")], new_files=[path])
     assert (validate_request(req) is None) is ok
-
-
-def test_regression_test_must_fail_on_deployed_code_before_any_fix_is_tried(db, agent):
-    orch, intake, github, llm, _ = agent
-    passes_on_bug = REGRESSION_TEST.replace("== 2_000", "== 20_000")       # asserts the buggy value
-    broken = REGRESSION_TEST.replace("from app import pricing", "from app import no_such_module")
-    llm.responses["_RegressionTestDraft"] = [
-        _RegressionTestDraft(outcome="test", slug="a", content=passes_on_bug, asserts="x", review_reason=None),
-        _RegressionTestDraft(outcome="test", slug="b", content=broken, asserts="x", review_reason=None),
-    ]
-    db[UPTIME_INCIDENTS].insert_one(uptime_doc(m.utcnow()))
-    [iid] = intake.poll()
-
-    orch.run_pending()
-
-    inc = m.incidents(db).find_one({"_id": iid})
-    assert inc["status"] == m.STATUS_NEEDS_REVIEW
-    assert "no regression test reproduced the failure after 2 attempt(s)" in inc["status_reason"]
-    assert "errors instead of failing an assertion" in inc["status_reason"]
-    second_prompt = [u for n, _, u in llm.calls if n == "_RegressionTestDraft"][1]
-    assert "does not reproduce the bug" in second_prompt   # round 1's rejection was fed back
-    assert llm.count("_PatchDraft") == 0 and github.create_calls == 0

@@ -11,10 +11,6 @@ incidents       One document per failed CI run (deduped on repo+run_id+run_attem
 workflow_steps  Append-only audit log. Every stage transition is written here with
                 its evidence (who did it, what was verified, when).
 memories        Past incidents + fixes with embeddings, searched via Atlas Vector Search.
-checkout_recoveries
-                One document per uptime incident whose outage interrupted checkouts: the
-                affected checkout IDs, each attempt's retry intent and verified result
-                (agents/recovery.py). A restarted recovery worker resumes from it.
 
 Run `python -m agents.mongodb` once to create everything (idempotent).
 """
@@ -42,11 +38,8 @@ INCIDENTS = "incidents"
 WORKFLOW_STEPS = "workflow_steps"
 MEMORIES = "memories"
 LIVE_INCIDENTS = "live_incidents"
-CHECKOUT_RECOVERIES = "checkout_recoveries"
 WORKER_HEARTBEATS = "worker_heartbeats"  # one document per running worker, expires when it stops
 UPTIME_INCIDENTS = "uptime_incidents"  # owned by the uptime monitor (admin-dashboard); read only here
-
-RECOVERY_PHASES = ["collecting", "reconciling", "needs_review", "complete"]
 
 VECTOR_INDEX_NAME = "memory_vector_index"
 EMBEDDING_DIMS = int(os.getenv("EMBEDDING_DIMS", "1024"))
@@ -138,10 +131,6 @@ def live_incidents(db: Database | None = None) -> Collection:
     return get_db(db)[LIVE_INCIDENTS]
 
 
-def checkout_recoveries(db: Database | None = None) -> Collection:
-    return get_db(db)[CHECKOUT_RECOVERIES]
-
-
 # --------------------------------------------------------------------------- #
 # Schema validation                                                           #
 # --------------------------------------------------------------------------- #
@@ -226,23 +215,6 @@ LIVE_INCIDENT_SCHEMA = {
 }
 
 
-CHECKOUT_RECOVERY_SCHEMA = {
-    "$jsonSchema": {
-        "bsonType": "object",
-        "required": ["_id", "incident_id", "service_id", "phase", "attempts", "affected_checkout_ids",
-                     "created_at", "updated_at"],
-        "properties": {
-            "_id": {"bsonType": "string"},
-            "incident_id": {"bsonType": "string"},
-            "phase": {"enum": RECOVERY_PHASES},
-            "affected_checkout_ids": {"bsonType": "array", "items": {"bsonType": "string"}},
-            "attempts": {"bsonType": "object"},
-            "workers": {"bsonType": "array", "items": {"bsonType": "string"}},
-        },
-    }
-}
-
-
 def _ensure_collection(db: Database, name: str, schema: dict) -> None:
     try:
         db.create_collection(name, validator=schema, validationLevel="moderate")
@@ -282,10 +254,6 @@ def ensure_setup(db: Database | None = None, vector_index: bool = True) -> None:
     live = db[LIVE_INCIDENTS]
     live.create_index("active_service", unique=True, sparse=True, name="one_open_per_service")
     live.create_index([("service", ASCENDING), ("opened_at", DESCENDING)], name="by_service")
-
-    _ensure_collection(db, CHECKOUT_RECOVERIES, CHECKOUT_RECOVERY_SCHEMA)
-    db[CHECKOUT_RECOVERIES].create_index([("phase", ASCENDING), ("lease.expires_at", ASCENDING)],
-                                         name="resumable")
 
     db[WORKER_HEARTBEATS].create_index("expires_at", expireAfterSeconds=0, name="ttl")
 
@@ -362,5 +330,5 @@ def watch_incidents(db: Database | None = None):
 if __name__ == "__main__":
     ensure_setup()
     print(f"[mongodb] setup complete on db '{get_db().name}'")
-    for name in (INCIDENTS, WORKFLOW_STEPS, MEMORIES, LIVE_INCIDENTS, CHECKOUT_RECOVERIES):
+    for name in (INCIDENTS, WORKFLOW_STEPS, MEMORIES, LIVE_INCIDENTS):
         print(f"  {name}: {get_db()[name].count_documents({})} docs")

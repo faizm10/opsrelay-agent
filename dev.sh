@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the three demo platforms (six servers), the AI agent worker and the recovery worker from one terminal.
+# Start the OpsRelay uptime API, the dashboard and the AI agent worker from one terminal.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,14 +17,14 @@ usage() {
   cat <<'EOF'
 Usage: ./dev.sh [up|setup|logs|reset|help]
 
-  setup  Install the Python and Node dependencies for all three platforms and the agent.
-  up     Start all six servers and the AI agent worker (default). Press Ctrl+C to stop them all.
+  setup  Install the Python and Node dependencies for the dashboard and the agent.
+  up     Start both servers and the AI agent worker (default). Press Ctrl+C to stop them all.
   logs   Follow the server and agent logs in .dev/logs/.
-  reset  Clear incidents in Atlas, local demo records and old agent/* branches (asks first).
+  reset  Clear incidents in Atlas, the dev logs and old agent/* branches (asks first).
 
 Set PYTHON=python3.12 to choose a Python interpreter during setup.
 Set DEV_PORT_OFFSET=100 to shift every port when the defaults are occupied.
-Set DEV_AGENT=0 to start the servers without the AI agent and recovery workers.
+Set DEV_AGENT=0 to start the servers without the AI agent worker.
 EOF
 }
 
@@ -53,15 +53,12 @@ check_versions() {
 
 setup() {
   check_versions
-  local platform frontend ca_file
-  for platform in shopping message-platform admin-dashboard; do
-    if [[ "$platform" == "admin-dashboard" ]]; then frontend=web; else frontend=frontend; fi
-    echo "Installing $platform backend..."
-    "$PYTHON" -m venv "$ROOT/$platform/backend/.venv"
-    "$ROOT/$platform/backend/.venv/bin/python" -m pip install -r "$ROOT/$platform/backend/requirements.txt"
-    echo "Installing $platform frontend..."
-    (cd "$ROOT/$platform/$frontend" && npm ci)
-  done
+  local ca_file
+  echo "Installing the uptime API..."
+  "$PYTHON" -m venv "$ROOT/admin-dashboard/backend/.venv"
+  "$ROOT/admin-dashboard/backend/.venv/bin/python" -m pip install -r "$ROOT/admin-dashboard/backend/requirements.txt"
+  echo "Installing the dashboard..."
+  (cd "$ROOT/admin-dashboard/web" && npm ci)
   echo "Installing the AI agent..."
   "$PYTHON" -m venv "$ROOT/agents/.venv"
   "$ROOT/agents/.venv/bin/python" -m pip install -r "$ROOT/requirements.txt"
@@ -72,7 +69,7 @@ setup() {
   else
     echo "Add MONGODB_URI to .env, then run ./dev.sh setup again to prepare the agent's MongoDB collections."
   fi
-  echo "Setup complete. Run ./dev.sh to start all six servers and the AI agent."
+  echo "Setup complete. Run ./dev.sh to start the servers and the AI agent."
 }
 
 # Print the CA bundle for the agent's Python. python.org builds on macOS ship without
@@ -98,18 +95,15 @@ agent_skip_reason() {
 }
 
 check_dependencies() {
-  local missing=0 platform frontend
-  for platform in shopping message-platform admin-dashboard; do
-    if [[ "$platform" == "admin-dashboard" ]]; then frontend=web; else frontend=frontend; fi
-    if [[ ! -x "$ROOT/$platform/backend/.venv/bin/python" ]]; then
-      echo "Missing $platform backend environment." >&2
-      missing=1
-    fi
-    if [[ ! -x "$ROOT/$platform/$frontend/node_modules/.bin/next" ]]; then
-      echo "Missing $platform frontend dependencies." >&2
-      missing=1
-    fi
-  done
+  local missing=0
+  if [[ ! -x "$ROOT/admin-dashboard/backend/.venv/bin/python" ]]; then
+    echo "Missing the uptime API environment." >&2
+    missing=1
+  fi
+  if [[ ! -x "$ROOT/admin-dashboard/web/node_modules/.bin/next" ]]; then
+    echo "Missing the dashboard dependencies." >&2
+    missing=1
+  fi
   if ((missing)); then
     echo "Run ./dev.sh setup first." >&2
     exit 1
@@ -190,46 +184,28 @@ up() {
     echo "DEV_PORT_OFFSET must be an integer from 0 to 57235." >&2
     exit 1
   fi
-  local mart_web=$((3100 + offset)) mart_api=$((8100 + offset))
-  local connect_web=$((3200 + offset)) connect_api=$((8200 + offset))
   local relay_web=$((3300 + offset)) relay_api=$((8300 + offset))
-  for port in "$mart_web" "$mart_api" "$connect_web" "$connect_api" "$relay_web" "$relay_api"; do check_port "$port"; done
+  for port in "$relay_web" "$relay_api"; do check_port "$port"; done
   mkdir -p "$LOG_DIR"
   trap cleanup EXIT
   trap 'exit 0' INT TERM
 
-  # Let both applications become ready before starting the uptime worker. This
-  # avoids recording a false outage while Next.js is still compiling.
-  start novamart-api "$ROOT/shopping/backend" env NOVACONNECT_URL="http://127.0.0.1:$connect_api" "$ROOT/shopping/backend/.venv/bin/uvicorn" app.main:app --reload --port "$mart_api"
-  start novamart-web "$ROOT/shopping/frontend" env BACKEND_URL="http://127.0.0.1:$mart_api" "$ROOT/shopping/frontend/node_modules/.bin/next" dev -p "$mart_web"
-  start novaconnect-api "$ROOT/message-platform/backend" "$ROOT/message-platform/backend/.venv/bin/uvicorn" app.main:app --reload --port "$connect_api"
-  start novaconnect-web "$ROOT/message-platform/frontend" env BACKEND_URL="http://127.0.0.1:$connect_api" NEXT_PUBLIC_WS_URL="ws://127.0.0.1:$connect_api" "$ROOT/message-platform/frontend/node_modules/.bin/next" dev -p "$connect_web"
-
-  wait_ready novamart-api "http://127.0.0.1:$mart_api/api/health" "${PIDS[0]}"
-  wait_ready novamart-web "http://127.0.0.1:$mart_web" "${PIDS[1]}"
-  wait_ready novaconnect-api "http://127.0.0.1:$connect_api/health" "${PIDS[2]}"
-  wait_ready novaconnect-web "http://127.0.0.1:$connect_web" "${PIDS[3]}"
-
   start opsrelay-api "$ROOT/admin-dashboard/backend" env OPSRELAY_ENV=development "$ROOT/admin-dashboard/backend/.venv/bin/python" -m uptime serve --reload --port "$relay_api"
   start opsrelay-web "$ROOT/admin-dashboard/web" env OPSRELAY_UPTIME_API_URL="http://127.0.0.1:$relay_api" "$ROOT/admin-dashboard/web/node_modules/.bin/next" dev -p "$relay_web"
-  wait_ready opsrelay-api "http://127.0.0.1:$relay_api/api/v1/health" "${PIDS[4]}"
-  wait_ready opsrelay-web "http://127.0.0.1:$relay_web" "${PIDS[5]}"
+  wait_ready opsrelay-api "http://127.0.0.1:$relay_api/api/v1/health" "${PIDS[0]}"
+  wait_ready opsrelay-web "http://127.0.0.1:$relay_web" "${PIDS[1]}"
 
-  echo "All six servers are running: NovaMart http://localhost:$mart_web, NovaConnect http://localhost:$connect_web, OpsRelay http://localhost:$relay_web"
+  echo "OpsRelay is running: http://localhost:$relay_web"
 
-  # The agent watches the apps and the uptime incidents in MongoDB, then works on
-  # outages. It is optional: the demo servers keep running if it stops.
+  # The agent watches the uptime incidents in MongoDB, then works on outages.
+  # It is optional: the servers keep running if it stops.
   local agent=-1 skip ca_file
   skip="$(agent_skip_reason)"
   if [[ -z "$skip" ]]; then
     ca_file="$(agent_ca_file)"
-    start agent-worker "$ROOT" env PYTHONUNBUFFERED=1 OPSRELAY_DEMO_FAST_FIX=1 ${ca_file:+SSL_CERT_FILE="$ca_file"} OPSRELAY_SHOPPING_URL="http://127.0.0.1:$mart_api" OPSRELAY_MESSAGING_URL="http://127.0.0.1:$connect_api" "$ROOT/agents/.venv/bin/python" -m agents.orchestrator worker
+    start agent-worker "$ROOT" env PYTHONUNBUFFERED=1 ${ca_file:+SSL_CERT_FILE="$ca_file"} "$ROOT/agents/.venv/bin/python" -m agents.orchestrator worker
     agent=$((${#PIDS[@]} - 1))
     echo "AI agent worker started. Log: $LOG_DIR/agent-worker.log"
-    # Reconciles checkouts interrupted by an incident. It runs separately from the agent and is
-    # restarted when it exits, so a crash mid-recovery resumes the same incident under a new worker ID.
-    start recovery-worker "$ROOT" env PYTHONUNBUFFERED=1 ${ca_file:+SSL_CERT_FILE="$ca_file"} OPSRELAY_SHOPPING_URL="http://127.0.0.1:$mart_api" OPSRELAY_MESSAGING_URL="http://127.0.0.1:$connect_api" bash -c 'while true; do "$0" -m agents.recovery worker || echo "recovery worker exited (status $?); restarting"; sleep 1; done' "$ROOT/agents/.venv/bin/python"
-    echo "Recovery worker started. Log: $LOG_DIR/recovery-worker.log"
   else
     echo "AI agent worker not started ($skip)."
   fi

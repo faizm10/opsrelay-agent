@@ -16,8 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
-def db(monkeypatch):
-    monkeypatch.delenv("OPSRELAY_APPS_CONFIG", raising=False)  # use the real apps.toml
+def db():
     db = mongomock.MongoClient(tz_aware=True)["opsrelay_live_test"]
     m.ensure_setup(db, vector_index=False)
     return db
@@ -67,7 +66,7 @@ def test_services_are_tracked_separately(db):
     assert m.live_incidents(db).count_documents({"status": "open"}) == 2
 
 
-def test_evidence_has_step_commit_changes_logs_ci_and_similar(db, tmp_path, monkeypatch):
+def test_evidence_has_step_commit_changes_logs_ci_and_similar(db, messaging, tmp_path, monkeypatch):
     memory.seed_memory("messaging",
                        "live check failed for messaging: step send POST /probe/messages http_error HTTP 500",
                        "Probe send 500: idempotency guard inverted in messages.py", db=db)
@@ -82,12 +81,12 @@ def test_evidence_has_step_commit_changes_logs_ci_and_similar(db, tmp_path, monk
         {"path": ".github/workflows/messaging-ci.yml", "status": "completed", "conclusion": "success"}])
 
     inc, _ = li.record_check(c, db=db)
-    ev = li.collect_evidence(inc, c, str(REPO_ROOT), github=github, db=db)
+    ev = li.collect_evidence(inc, c, str(messaging.repo), github=github, db=db)
 
     assert ev.deployed_sha and len(ev.deployed_sha) == 40
     assert ev.ci_status == "passing"
     assert c.probe_id in ev.service_logs
-    assert any(p.startswith("message-platform/backend/app/") for p in ev.source_files)
+    assert any(p.startswith("message-platform/src/") for p in ev.source_files)
     assert ev.similar_incidents and "idempotency" in ev.similar_incidents[0].summary
     assert all("leak" not in s.summary for s in ev.similar_incidents)
     stored = m.live_incidents(db).find_one({"_id": inc["_id"]})["evidence"]
@@ -140,7 +139,7 @@ def test_live_services_env(monkeypatch):
     monkeypatch.setenv("OPSRELAY_LIVE_SERVICES", "none")
     assert li.live_services() == []
     monkeypatch.delenv("OPSRELAY_LIVE_SERVICES")
-    assert li.live_services() == ["shopping", "messaging"]
+    assert li.live_services() == []
 
 
 def test_investigation_retries_after_error_up_to_limit(db):

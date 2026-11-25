@@ -125,8 +125,6 @@ async def probe_functional(client: httpx.AsyncClient, service: ServiceConfig) ->
         "failed_checks": body.get("failed_checks", []),
         "failures": _probe_failures(body),
     }
-    if isinstance(body.get("interrupted_checkouts"), int):
-        details["interrupted_checkouts"] = body["interrupted_checkouts"]
     healthy = str(body.get("status")).lower() == "healthy"
     if healthy and response.is_success:
         return ProbeResult(kind="functional", url=url, ok=True, http_status=response.status_code, latency_ms=latency, details=details)

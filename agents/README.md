@@ -1,6 +1,6 @@
 # OpsRelay AI diagnosis and repair
 
-Takes a failed CI run **or a failed live service check** for a demo app. It returns a
+Takes a failed CI run **or a failed live service check** for an app in `apps.toml`. It returns a
 **verified** minimal patch, or **needs_review** with a reason and the next diagnostic to run.
 For live failures it also confirms recovery with a fresh delivery probe.
 
@@ -18,7 +18,7 @@ pipeline.py       repair_ci_failure()
 
 ## Incident agent (end to end)
 
-When Shopping or Messaging breaks, the agent investigates, writes a tested fix and opens a
+When a mapped app breaks, the agent investigates, writes a tested fix and opens a
 **draft PR that a person must approve**. It never merges anything itself.
 
 ```
@@ -294,13 +294,11 @@ Model and API errors are raised so the orchestrator can apply its own retry poli
 `pytest_args` and timeout. `baseline_runs`, `max_candidates` and `max_rounds` default to
 2, 3 and 2 and can be set per app.
 
-- **Shopping** points at Taha's NovaMart backend: `root = "shopping/backend"`, with
-  patches limited to `shopping/backend/app`. Its test dependencies (`fastapi`, `httpx`,
-  `uvicorn`) are listed in `agents/requirements.txt`, because the verifier runs pytest
-  with the agents interpreter. `tests/test_novamart_repair.py` commits a bug from
-  `shopping/inject_bug.py` and repairs it end to end against the real code.
-- **Messaging** is still a placeholder until `message-platform/` lands.
-- **Frontends** (`shopping-web`, `messaging-web`, `kind = "node"`): a CI run where only the
+The shipped `apps.toml` has no apps yet; its header shows a Python and a Node entry to copy.
+
+- **Python apps:** the verifier runs pytest with the agents interpreter, so the app's test
+  dependencies must be installed in `agents/.venv`.
+- **Frontends** (`<app>-web`, `kind = "node"`): a CI run where only the
   frontend job failed is routed here. The verifier runs `install` (`npm ci`) once at the failed
   commit with the process runner, since it needs the network, then every command in `checks`
   (`npm run typecheck`, `npm run build`) must pass. Patches may edit `src/` and `tsconfig.json`,
@@ -354,13 +352,10 @@ See the docstring at the top of `orchestrator.py`. Summary:
 
 ### Live incidents: system check every 30 s (Mo)
 
-`agents/live_incidents.py`. The worker (`python -m agents.orchestrator worker`) checks Taha's apps
-every `POLL_SECONDS` (30), alongside CI. Use `python -m agents.orchestrator live [--once]` for live checks only.
-
-| App | Availability | Functional probe (side-effect free) | Default URL |
-|---|---|---|---|
-| shopping (NovaMart) | `GET /api/health` | `GET /api/health/checkout` | `http://localhost:8100` |
-| messaging (NovaConnect) | `GET /health` | `GET /api/monitor/probe` | `http://localhost:8200` |
+`agents/live_incidents.py`. When `OPSRELAY_LIVE_SERVICES` names services, the worker
+(`python -m agents.orchestrator worker`) checks them every `POLL_SECONDS` (30), alongside CI. Use
+`python -m agents.orchestrator live [--once]` for live checks only. Each service's availability and
+side-effect-free functional probe paths are in `SYSTEM_CHECKS`; set its URL with `OPSRELAY_<SERVICE>_URL`.
 
 - **Fails:** opens the service's incident in the `live_incidents` collection, or updates it. There is at most one unresolved incident per service.
 - **Evidence:** the exact failed step (URL, HTTP status, failed checks), the deployed commit (`HEAD` of `OPSRELAY_REPO_PATH`), the last 3 commits' changes under the app, the app's log lines, the latest CI status, and similar incidents from Atlas Vector Search. This is stored on the incident as `evidence`.
@@ -368,8 +363,8 @@ every `POLL_SECONDS` (30), alongside CI. Use `python -m agents.orchestrator live
 - **Passes again:** the incident is resolved, with the fresh probe id recorded as proof of recovery.
 - Every step is logged to `workflow_steps`.
 
-Settings: `OPSRELAY_LIVE_SERVICES` (default `shopping,messaging`; `none` turns it off),
-`OPSRELAY_SHOPPING_URL`, `OPSRELAY_MESSAGING_URL`, `OPSRELAY_<APP>_LOG_FILE`, `OPSRELAY_<APP>_DEPLOYED_SHA`.
+Settings: `OPSRELAY_LIVE_SERVICES` (off when unset or `none`), `OPSRELAY_<SERVICE>_URL`,
+`OPSRELAY_<APP>_LOG_FILE`, `OPSRELAY_<APP>_DEPLOYED_SHA`.
 
 ## Reinforcement-learning fix policy (Mo)
 

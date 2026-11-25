@@ -83,8 +83,20 @@ def test_happy_path(db):
     assert m.memories(db).count_documents({"source_incident_id": iid}) == 1
 
 
-def test_dependabot_failure_gets_a_fix_pr_on_its_branch_and_resolves_on_merge(db, monkeypatch):
-    monkeypatch.delenv("OPSRELAY_APPS_CONFIG")  # the real apps.toml has the frontend apps
+def test_rejected_pr_marks_incident_rejected_and_forgets_the_fix(db):
+    gh = FakeGitHub()
+    iid, _ = o.ingest_failed_run(SAMPLE_RUN, db=db)
+    orch = o.Orchestrator(gh, FakeRepairer(), db=db, worker_id="w1")
+    inc = orch.run_incident(iid)
+
+    gh.set_state(SAMPLE_RUN["repo"], inc["pr_intent"]["branch"], "closed")
+
+    assert orch.check_reviews() == [(iid, m.STATUS_REJECTED)]
+    assert m.memories(db).find_one({"source_incident_id": iid})["active"] is False
+    assert orch.check_reviews() == []  # recorded once
+
+
+def test_dependabot_failure_gets_a_fix_pr_on_its_branch_and_resolves_on_merge(db):
     class WebRepairer(FakeRepairer):
         def repair(self, failed_run, similar):
             return {**super().repair(failed_run, similar), "files": {"shopping/frontend/tsconfig.json": "{}\n"},

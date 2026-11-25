@@ -37,7 +37,6 @@ Run the suite for what you changed:
 | Uptime API | `cd admin-dashboard/backend && .venv/bin/python -m pytest -q` |
 | Dashboard | `cd admin-dashboard/web && npx tsc --noEmit && npm run build` |
 | Agents | `agents/.venv/bin/python -m pytest agents/tests -q` |
-| NovaMart / NovaConnect | `cd shopping && make test` / `cd message-platform && make test` |
 
 CI runs the same checks on every pull request.
 

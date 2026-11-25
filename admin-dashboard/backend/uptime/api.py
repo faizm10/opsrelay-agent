@@ -94,17 +94,11 @@ class ServiceOverview(BaseModel):
     latest_check: CheckRecord | None = None
 
 
-RecoveryStatus = Literal["not_needed", "waiting", "reconciling", "needs_review", "complete"]
-
-
 class IncidentOut(Incident):
     duration_seconds: float
     service_name: str
     related_ci: list[dict[str, Any]] = Field(default_factory=list)
-    # Two separate statuses: the service's health now, and the recovery of what the outage interrupted.
     service_health: Status = "unknown"
-    recovery_status: RecoveryStatus = "not_needed"
-    recovery: dict[str, Any] | None = None
 
 
 class MonitoringHealth(BaseModel):
@@ -445,12 +439,10 @@ def create_app(
                     "run_url": doc.get("html_url"), "pr_url": (doc.get("pr") or {}).get("url"),
                     "commit_sha": doc.get("commit_sha"), "created_at": doc.get("created_at"),
                 })
-        recovery = storage.get_recovery(incident.id) if (related or incident.recovery_phase) else None
         state = storage.get_state(incident.service_id)
         return IncidentOut(**incident.model_dump(), duration_seconds=incident.elapsed_seconds(now),
                            service_name=service_name(incident.service_id), related_ci=related_ci,
-                           service_health=alert_health(incident) or (state.status if state else "unknown"),
-                           recovery_status=recovery_status(incident, recovery), recovery=recovery)
+                           service_health=alert_health(incident) or (state.status if state else "unknown"))
 
     def alert_health(incident: Incident) -> str | None:
         """For alert-only sources the open incident is the health signal: its severity while open."""
@@ -466,14 +458,6 @@ def create_app(
             out.append({**repositories.public_mapping(mapping), "open_incident_id": open_incident.id if open_incident else None,
                         "health": "down" if open_incident else "operational" if mapping.get("betterstack_monitor_id") else "unknown"})
         return out
-
-    def recovery_status(incident: Incident, recovery: dict[str, Any] | None) -> str:
-        if incident.recovery_phase == "recovering":
-            phase = (recovery or {}).get("phase")
-            if phase is None or phase == "collecting":
-                return "waiting"
-            return phase if phase in ("needs_review", "complete") else "reconciling"
-        return "complete" if recovery and recovery.get("phase") == "complete" else "not_needed"
 
     def agent_activity(incident: Incident, now: datetime) -> AgentActivity:
         name = service_name(incident.service_id)
@@ -869,9 +853,9 @@ def create_app(
 
     @app.get("/api/v1/incidents/{incident_id}/walkthrough", response_model=Envelope[dict[str, Any]])
     def incident_walkthrough(incident_id: str, ws: str = Depends(workspace)):
-        """What the monitor, the repair agent and the recovery worker recorded, as ordered steps."""
+        """What the monitor and the repair agent recorded, as ordered steps."""
         incident = incident_or_404(incident_id, ws)
-        return ok(walkthrough.build(incident, storage.get_agent_run(incident_id), storage.get_recovery(incident_id), clock()))
+        return ok(walkthrough.build(incident, storage.get_agent_run(incident_id), clock()))
 
     def incident_or_404(incident_id: str, ws: str) -> Incident:
         incident = storage.get_incident(incident_id)

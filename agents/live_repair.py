@@ -20,10 +20,7 @@ incident record) and ``added_tests`` (new test files included in ``files``).
 from __future__ import annotations
 
 import json
-import os
 import re
-import sys
-import types
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -96,23 +93,26 @@ def probe_text(failures: list[dict]) -> str:
 
 
 def repair_live_incident(repairer: Repairer, failed_run: dict, similar: list[dict]) -> dict:
-    """The repair result plus one ``recommendation`` (see ``checkout_evidence.recommend``)."""
-    from . import checkout_evidence
-
-    app = load_app_config(failed_run["app"])
-    live = failed_run.get("live") or {}
-    sha = failed_run["commit_sha"]
-    evidence = None
-    if app.name == "shopping" and re.fullmatch(r"[0-9a-fA-F]{7,40}", sha):
-        evidence = checkout_evidence.collect(live, changed_in=lambda path: _commits_touching(repairer, sha, path))
-    out = _repair_live(repairer, failed_run, similar, evidence)
-    rec = checkout_evidence.recommend(evidence, out, operational=out.pop("_operational", False))
+    """The repair result plus one ``recommendation``: a code fix, an operational step or a review."""
+    out = _repair_live(repairer, failed_run, similar)
+    operational = out.pop("_operational", False)
+    action = ("propose_code_fix" if out.get("outcome") == "verified"
+              else "operational_step" if operational else "ask_for_review")
+    rec = {"action": action, "failure_point": "see the failing probe checks",
+           "cause": out.get("root_cause") or "unknown", "evidence": [], "detail": out.get("reason") or ""}
     out["recommendation"] = rec
-    out["investigation"] = (out.get("investigation") or "") + checkout_evidence.recommendation_markdown(rec)
+    out["investigation"] = (out.get("investigation") or "") + _recommendation_markdown(rec)
     return out
 
 
-def _repair_live(repairer: Repairer, failed_run: dict, similar: list[dict], evidence) -> dict:
+def _recommendation_markdown(rec: dict[str, Any]) -> str:
+    label = {"propose_code_fix": "Propose a code fix", "operational_step": "Operational step",
+             "ask_for_review": "Ask for review"}[rec["action"]]
+    return "\n".join(["", "", f"**Recommendation:** {label}. {rec['detail']}",
+                      f"- Failure point: {rec['failure_point']}", f"- Cause: {rec['cause']}"])
+
+
+def _repair_live(repairer: Repairer, failed_run: dict, similar: list[dict]) -> dict:
     from .live_incident import LiveIncident, diagnose_live_failure
 
     app = load_app_config(failed_run["app"])
@@ -136,17 +136,7 @@ def _repair_live(repairer: Repairer, failed_run: dict, similar: list[dict], evid
         return {**_needs_review(reason, f"{', '.join(external)} outage",
                                 _markdown(live, reason, None, PROVIDER_STEPS)), "_operational": True}
 
-    if evidence is not None and evidence.dependency_timed_out and not evidence.code_change_suspected:
-        reason = (f"{title}: {evidence.failure_point}. No recent commit changed {evidence.hinted_file}, "
-                  "so no code change was attempted")
-        markdown = _markdown(live, reason, None, []) + "\n".join(evidence.markdown())
-        return _needs_review(reason, evidence.cause, markdown)
-
     source_files = repairer._source_files(sha, app)
-    if os.environ.get("OPSRELAY_DEMO_FAST_FIX", "0") == "1":
-        known = _known_demo_fix(repairer, sha, app, source_files, live)
-        if known is not None:
-            return known
     incident = LiveIncident(
         check=live_check_from_handoff(live),
         repo_path=repairer.repo_path,
@@ -157,15 +147,13 @@ def _repair_live(repairer: Repairer, failed_run: dict, similar: list[dict], evid
         ci_status=live.get("ci_status") or "unknown",
         probe_details=probe_text(live.get("probe_failures") or []),
         test_examples=_test_examples(repairer, sha, app, live),
-        service_logs="\n\n".join(t for t in [evidence.text() if evidence else "", live.get("service_logs") or ""] if t),
+        service_logs=live.get("service_logs") or "",
     )
     result = diagnose_live_failure(incident, repairer.llm)
     repair: RepairResult | None = result.repair
     actions = (APPROVAL_STEPS if result.outcome == "verified" else
                [a for a in [result.next_diagnostic, *result.recommended_actions] if a])
     markdown = _markdown(live, result.reason, result, actions)
-    if evidence is not None:
-        markdown += "\n".join(evidence.markdown())
     if result.outcome != "verified" or repair is None or repair.outcome != "verified":
         next_step = f" Next: {result.next_diagnostic}" if result.next_diagnostic else ""
         return _needs_review(result.reason + next_step, result.likely_cause, markdown,
@@ -186,61 +174,6 @@ def _repair_live(repairer: Repairer, failed_run: dict, similar: list[dict], evid
     }
 
 
-def _known_demo_fix(repairer: Repairer, sha: str, app, source_files: dict[str, str], live: dict) -> dict | None:
-    """Demo shortcut: undo a bug from the app's ``inject_bug.py`` catalog without a model call.
-
-    The demo bad deploys ship exactly one catalog bug, so when the deployed source holds a
-    catalog ``buggy`` line, the fix is that bug's ``original`` line. Set
-    Off unless ``OPSRELAY_DEMO_FAST_FIX=1`` (dev.sh sets it): it skips the model and the tests.
-    """
-    from .patcher import _file_diff
-
-    project = app.root.split("/")[0]  # inject_bug.py and its paths live at the app's top directory
-    catalog = repairer._git("show", f"{sha}:{project}/inject_bug.py", default=None)
-    if not catalog:
-        return None
-    try:
-        module = types.ModuleType(f"opsrelay_demo_catalog_{app.name}")
-        module.__file__ = os.path.join(repairer.repo_path, project, "inject_bug.py")  # the catalog reads it
-        sys.modules[module.__name__] = module  # dataclasses resolve annotations through sys.modules
-        exec(compile(catalog, f"{project}/inject_bug.py", "exec"), module.__dict__)
-        bugs = module.BUGS
-    except Exception:
-        return None
-    for bug in bugs.values():
-        path = f"{project}/{bug.file}"
-        old = source_files.get(path)
-        if old is None or old.count(bug.buggy) != 1 or bug.original in old:
-            continue
-        new = old.replace(bug.buggy, bug.original, 1)
-        reason = f"A recent change to {path} caused this; restored the previous line."
-        root_cause = bug.symptom
-        markdown = "\n".join([
-            f"## {live.get('title') or app.name + ' live incident'}",
-            "",
-            f"**Root cause:** {root_cause}",
-            "",
-            f"**Fix:** in `{path}`, restore the line changed by the recent commit.",
-            "",
-            "**Next steps:**",
-            *[f"- {a}" for a in APPROVAL_STEPS],
-        ])
-        return {
-            "tests_passed": True,
-            "test_output": "Known demo regression; the original line is restored.",
-            "diff": _file_diff(path, old, new),
-            "files": {path: new},
-            "changed_files": [path],
-            "added_tests": [],
-            "summary": reason,
-            "root_cause": root_cause,
-            "investigation": markdown,
-            "outcome": "verified",
-            "reason": reason,
-        }
-    return None
-
-
 def _needs_review(reason: str, root_cause: str, markdown: str, output: str = "") -> dict:
     return {"tests_passed": False, "test_output": output or reason, "diff": "", "files": {},
             "changed_files": [], "summary": reason, "root_cause": root_cause,
@@ -251,12 +184,6 @@ def _prior(s: dict, i: int) -> PriorIncident:
     return PriorIncident(id=str(s.get("memory_id") or s.get("id") or i), summary=s.get("summary") or "",
                          root_cause=s.get("root_cause"), fix_summary=s.get("fix_summary"),
                          similarity=s.get("score"))
-
-
-def _commits_touching(repairer: Repairer, sha: str, path: str) -> list[str]:
-    """``<short sha> <subject>`` for recent commits that changed ``path``."""
-    log = repairer._git("log", f"-{RECENT_COMMITS}", "--format=%h %s", sha, "--", path, default="") or ""
-    return [line for line in log.splitlines() if line.strip()]
 
 
 def _recent_diff(repairer: Repairer, sha: str, app) -> str:

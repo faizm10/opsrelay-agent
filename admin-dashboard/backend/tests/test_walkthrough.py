@@ -1,4 +1,4 @@
-"""The walkthrough merges the monitor's, the agent's and the recovery worker's records into ordered steps."""
+"""The walkthrough merges the monitor's and the agent's records into ordered steps."""
 
 import asyncio
 import json
@@ -44,7 +44,7 @@ def test_walkthrough_merges_recorded_steps_without_private_fields(settings, cloc
     steps = {s["key"]: s for s in body["data"]["steps"]}
 
     assert [s["key"] for s in body["data"]["steps"]] == [
-        "detected", "similar", "investigated", "pr", "merge", "fresh", "reconciled", "resolved"]
+        "detected", "similar", "investigated", "pr", "merge", "fresh", "resolved"]
     assert [steps[k]["state"] for k in ("similar", "investigated", "pr", "merge", "fresh")] == [
         "done", "done", "done", "running", "waiting"]
     assert steps["investigated"]["duration_seconds"] == 60

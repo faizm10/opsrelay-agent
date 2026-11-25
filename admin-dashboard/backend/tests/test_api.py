@@ -8,6 +8,7 @@ import pytest
 
 from fastapi.testclient import TestClient
 
+from uptime import repositories
 from uptime.api import create_app
 from uptime.worker import UptimeMonitor
 
@@ -376,6 +377,8 @@ def test_betterstack_alerts_route_to_their_workspace_and_replays_update_one_inci
 def test_repo_agent_is_off_by_default_and_only_enables_for_the_workers_repo(tmp_path, settings, clock, monkeypatch):
     monkeypatch.setenv("GITHUB_OWNER", "octo")
     monkeypatch.setenv("GITHUB_REPO", "shop")
+    (tmp_path / "apps.toml").write_text('[apps.shopping]\nroot = "shopping"\n')
+    monkeypatch.setattr(repositories, "AGENT_APPS", tmp_path / "apps.toml")
     storage = make_sqlite(tmp_path)
     owner = signed_in(create_app(storage, settings, clock=clock))
     for sid, repo in (("shop", "octo/shop"), ("chat", "octo/chat")):

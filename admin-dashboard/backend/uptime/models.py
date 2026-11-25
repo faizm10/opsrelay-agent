@@ -54,9 +54,6 @@ class ServiceConfig(Model):
     functional_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     failure_threshold: int = Field(default=1, ge=1, le=10, description="Consecutive failing checks before an incident opens.")
     recovery_threshold: int = Field(default=1, ge=1, le=10, description="Consecutive operational checks before it resolves.")
-    recovery: Literal["checkout_attempts"] | None = Field(
-        default=None, description="Records an outage can interrupt. The incident stays open after the service is "
-                                  "healthy until the OpsRelay recovery worker has a verified outcome for each one.")
     enabled: bool = True
     workspace_id: str = Field(default="demo", description="The workspace that owns this service.")
 
@@ -155,10 +152,6 @@ class Incident(Model):
     started_at: UTCDateTime
     last_failure_at: UTCDateTime
     resolved_at: UTCDateTime | None = None
-    # Service health and incident recovery are separate: once a fresh check passes, the service
-    # is operational again but the incident stays open while interrupted records are reconciled.
-    recovery_phase: Literal["recovering"] | None = None
-    service_recovered_at: UTCDateTime | None = None
     failed_check_count: int = 1
     first_check_id: str
     last_check_id: str

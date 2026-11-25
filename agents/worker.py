@@ -29,6 +29,7 @@ import subprocess
 import sys
 import threading
 import time
+import tomllib
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
@@ -37,11 +38,10 @@ from pathlib import Path
 
 from agents import mongodb as m
 from agents import verifier
+from agents.contracts import APPS_CONFIG_PATH
 
 log = logging.getLogger("agents.worker")
-APPS = ("shopping", "messaging")
-SECRET_ENV = ("MONGODB_URI", "OPENAI_API_KEY", "GITHUB_TOKEN", "GITHUB_PUBLISH_TOKEN", "VOYAGE_API_KEY",
-              "OPSRELAY_SERVICE_TOKEN")
+SECRET_ENV = ("MONGODB_URI", "OPENAI_API_KEY", "GITHUB_TOKEN", "GITHUB_PUBLISH_TOKEN", "VOYAGE_API_KEY")
 _incident: contextvars.ContextVar[str | None] = contextvars.ContextVar("incident_id", default=None)
 
 
@@ -87,8 +87,6 @@ def load_config(env: dict[str, str] | None = None) -> tuple[Config, list[str]]:
         cfg.runner = "docker" if env.get("OPSRELAY_VERIFIER_IMAGE") and verifier.docker_reachable() else "process"
     if not cfg.repo_path or not (Path(cfg.repo_path) / ".git").exists():
         errors.append("OPSRELAY_REPO_PATH must be a git clone of the target repository")
-    if env.get("OPSRELAY_DEMO_FAST_FIX") == "1":
-        errors.append("OPSRELAY_DEMO_FAST_FIX=1 skips the model and the tests; demo only")
     if env.get("GITHUB_DRAFT_PRS", "true").lower() in ("0", "false", "no"):
         errors.append("GITHUB_DRAFT_PRS must stay true: merges stay with humans")
     if unknown := cfg.publish_repos - {repo}:
@@ -98,8 +96,9 @@ def load_config(env: dict[str, str] | None = None) -> tuple[Config, list[str]]:
             errors.append("GITHUB_PUBLISH_TOKEN is required when OPSRELAY_PUBLISH_REPOS is set")
         elif env.get("GITHUB_PUBLISH_TOKEN") == env.get("GITHUB_TOKEN"):
             errors.append("GITHUB_PUBLISH_TOKEN must differ from the read-only GITHUB_TOKEN")
+        apps = tomllib.loads(Path(env.get("OPSRELAY_APPS_CONFIG") or APPS_CONFIG_PATH).read_text())["apps"]
         errors += [f"OPSRELAY_{a.upper()}_{k}_URL is required to verify merged fixes are deployed"
-                   for a in APPS for k in ("VERSION", "PROBE") if not env.get(f"OPSRELAY_{a.upper()}_{k}_URL")]
+                   for a in apps for k in ("VERSION", "PROBE") if not env.get(f"OPSRELAY_{a.upper()}_{k}_URL")]
     if cfg.runner == "docker":
         if not env.get("OPSRELAY_VERIFIER_IMAGE"):
             errors.append("OPSRELAY_VERIFIER_IMAGE is required with OPSRELAY_VERIFIER_RUNNER=docker")

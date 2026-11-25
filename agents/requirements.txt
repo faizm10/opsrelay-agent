@@ -5,9 +5,3 @@ pydantic>=2.10,<3
 pytest>=9,<10
 httpx>=0.27,<1
 cryptography>=46,<51
-# Shopping (NovaMart) backend test deps, needed by the verifier
-fastapi==0.162.7
-httpx==0.28.1
-uvicorn==0.54.0
-# Messaging (NovaConnect) backend test deps, needed by the verifier
-websockets==17.4

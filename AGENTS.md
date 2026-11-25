@@ -22,15 +22,14 @@ Instructions for coding agents (Claude Code, Codex). Keep changes small and the 
 
 ## Commits and pull requests
 - Commit subject: `<area>: <what changed>`, imperative, under ~72 chars. Areas: `uptime`, `dashboard`, `agents`,
-  `shopping`, `messaging`, `ci`, `docs`, `repo`. Example: `uptime: sync Dependabot alerts into incidents`.
+  `ci`, `docs`, `repo`. Example: `uptime: sync Dependabot alerts into incidents`.
 - One logical change per commit; the body (optional) says why, not what.
 - PR title is plain words (`Dependabot alerts become dashboard incidents`); the body says what changed and how it was verified.
 - Squash-merge into `main` with the PR number first: `#<number>: <PR title>`, e.g.
   `gh pr merge 70 --squash --subject "#70: Dependabot alerts become dashboard incidents"`.
 
 ## Layout
-- `shopping/` NovaMart (FastAPI :8100, Next.js :3100) · `message-platform/` NovaConnect (:8200, :3200)
-- `admin-dashboard/` OpsRelay uptime API (:8300) and dashboard (:3300) · `agents/` repair agent, recovery worker
-- Architecture: `docs/system-architecture.md`. Start everything with `./dev.sh`; clear demo state with `./dev.sh reset`.
-- Python suites: `<app>/backend/.venv/bin/python -m pytest -q`; agents: `agents/.venv/bin/python -m pytest agents/tests -q`.
+- `admin-dashboard/` OpsRelay uptime API (:8300) and dashboard (:3300) · `agents/` repair agent
+- Architecture: `docs/system-architecture.md`. Start everything with `./dev.sh`; clear incident state with `./dev.sh reset`.
+- Python suites: `admin-dashboard/backend/.venv/bin/python -m pytest -q`; agents: `agents/.venv/bin/python -m pytest agents/tests -q`.
   Dashboard types: `cd admin-dashboard/web && npx tsc --noEmit`.

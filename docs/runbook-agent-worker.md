@@ -2,8 +2,7 @@
 
 The worker (`python -m agents.worker`) turns failed GitHub Actions runs and live uptime incidents
 into a structured recommendation: `verified_patch`, `ops_recommendation` or `needs_review`. State
-lives in Atlas. The dashboard, NovaMart and NovaConnect are not part of this deployment; they are
-external integrations (or staging fixtures). The local demo (`./dev.sh`) is unchanged.
+lives in Atlas. The dashboard is not part of this deployment. Local development (`./dev.sh`) is unchanged.
 
 ## What it does in production
 
@@ -143,13 +142,6 @@ it will not resolve `awaiting_deployment` incidents until you roll forward again
 
 1. Create the write token (Contents and Pull requests: write) for that one repository, and set
    `GITHUB_PUBLISH_TOKEN`.
-2. Set the four `OPSRELAY_*_VERSION_URL` and `OPSRELAY_*_PROBE_URL` values. Each deployment must
+2. Set `OPSRELAY_<APP>_VERSION_URL` and `OPSRELAY_<APP>_PROBE_URL` for each app in `agents/apps.toml`. Each deployment must
    set `OPSRELAY_DEPLOYED_SHA` so that `/api/version` reports the commit.
 3. Set `OPSRELAY_PUBLISH_REPOS=faizm10/opsrelay-agent`, then run `check` and restart.
-
-## Checkout recovery
-
-The recovery worker (`agents.recovery`) is not part of this deployment. With `OPSRELAY_ENV=production`
-its writes are off (`OPSRELAY_RECOVERY_WRITES`): a missing confirmation stays open for review,
-along with the resend it would make. Set `OPSRELAY_SERVICE_TOKEN` on both services, and on the
-callers, to require bearer auth on the recovery and confirmation routes.

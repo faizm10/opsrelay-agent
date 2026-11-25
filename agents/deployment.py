@@ -1,7 +1,7 @@
 """Deployment evidence for merged fixes: what is deployed, whether it contains the fix, and a
 fresh live probe. Configured per app with server-side URLs:
 
-    OPSRELAY_<APP>_VERSION_URL  JSON with "commit_sha" (NovaMart/NovaConnect: /api/version)
+    OPSRELAY_<APP>_VERSION_URL  JSON with "commit_sha"
     OPSRELAY_<APP>_PROBE_URL    200 when healthy, anything else is a failing probe
 
 Every method returns None when it cannot tell, so the orchestrator records the evidence as

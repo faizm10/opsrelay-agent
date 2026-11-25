@@ -1,46 +1,27 @@
-# Repair scope and fixed test commands for each demo app.
-# root is where pytest runs (the directory holding pytest.ini); source_dirs and
-# test ids are repo-relative and root-relative respectively. Shopping matches
-# Taha's NovaMart layout; Messaging matches his NovaConnect layout.
-# The verifier runs pytest with the agents interpreter, so each app's test
-# dependencies must be installed there (see agents/requirements.txt).
+# Repair scope and fixed test commands for each app the agent may patch and verify.
+# root is where the checks run; source_dirs are repo-relative. Repositories without an entry here
+# still get diagnosis (agents/diagnose.py), but no verified patch or PR.
 #
 # A patch may only modify files under source_dirs. Tests, CI workflows,
 # dependency manifests and secrets are always rejected, even inside source_dirs.
+#
+# Python app (pytest runs with the agents interpreter, so its test deps must be installed there):
+#   [apps.api]
+#   root = "api"
+#   source_dirs = ["api/app"]
+#   test_dir = "tests"
+#   pytest_args = ["-q", "-p", "no:cacheprovider", "--no-header", "-rfE"]
+#   timeout_seconds = 120
+#
+# Node app (kind = "node"): `install` runs once at the failed commit, then every command in `checks`
+# must pass. tsconfig.json may be listed in source_dirs so compiler-option changes can be fixed:
+#   [apps.web]
+#   kind = "node"
+#   root = "web"
+#   source_dirs = ["web/src", "web/tsconfig.json"]
+#   install = ["npm", "ci", "--no-audit", "--no-fund"]
+#   checks = [["npm", "run", "typecheck"], ["npm", "run", "build"]]
+#   timeout_seconds = 600
+#   baseline_runs = 1
 
-[apps.shopping]
-root = "shopping/backend"
-source_dirs = ["shopping/backend/app"]
-test_dir = "tests"
-pytest_args = ["-q", "-p", "no:cacheprovider", "--no-header", "-rfE"]
-timeout_seconds = 120
-
-[apps.messaging]
-root = "message-platform/backend"
-source_dirs = ["message-platform/backend/app"]
-test_dir = "tests"
-pytest_args = ["-q", "-p", "no:cacheprovider", "--no-header", "-rfE"]
-timeout_seconds = 120
-
-# Frontends (kind = "node"): the verifier runs `install` once at the failed commit, then every
-# command in `checks` must pass. CI routes a failure here when only the frontend job failed, which
-# is how Dependabot upgrades that break the typecheck or build reach the agent. tsconfig.json is
-# editable so compiler-option changes from a TypeScript upgrade can be fixed; manifests never are.
-
-[apps.shopping-web]
-kind = "node"
-root = "shopping/frontend"
-source_dirs = ["shopping/frontend/src", "shopping/frontend/tsconfig.json"]
-install = ["npm", "ci", "--no-audit", "--no-fund"]
-checks = [["npm", "run", "typecheck"], ["npm", "run", "build"]]
-timeout_seconds = 600
-baseline_runs = 1
-
-[apps.messaging-web]
-kind = "node"
-root = "message-platform/frontend"
-source_dirs = ["message-platform/frontend/src", "message-platform/frontend/tsconfig.json"]
-install = ["npm", "ci", "--no-audit", "--no-fund"]
-checks = [["npm", "run", "typecheck"], ["npm", "run", "build"]]
-timeout_seconds = 600
-baseline_runs = 1
+[apps]
