@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { use } from "react";
 import { ArrowLeft, ArrowUpRight, GitPullRequest } from "lucide-react";
-import { AffectedCheckouts } from "@/components/recovery";
 import { Badge, ErrorPanel, Shell, Skeleton, StatusText } from "@/components/ui";
 import { type Incident, type Walkthrough, isDemoIncident, usePoll } from "@/lib/api";
 import { FAILURE_LABELS, ROUTE_LABELS, clock, duration, useNow } from "@/lib/format";
-import { agentRun, functionalLabel, healthAndProgress, phase } from "@/lib/phase";
+import { agentRun, healthAndProgress, phase } from "@/lib/phase";
 import { plainFailure } from "@/lib/plain";
 
 type Handoff = Record<string, unknown> & {
@@ -51,21 +50,9 @@ const EVENT_LABEL: Record<string, string> = {
   relapsed: "Failing again",
 };
 
-const RECOVERY_EVENT: Record<string, string> = {
-  collected: "Interrupted checkouts collected",
-  worker_claimed: "Recovery worker started",
-  retry_intent_saved: "Confirmation resend intent saved",
-  resend_failed: "Confirmation resend failed",
-  attempt_completed: "Confirmation verified",
-  attempt_failed: "Checkout marked failed",
-  awaiting_delivery: "Waiting for confirmation delivery",
-  needs_review: "Checkout needs review",
-  outcome_not_recorded: "Outcome not recorded in NovaMart",
-};
-
 type Entry = { at: string; label: string; detail?: string; source: string };
 
-/** Monitor, agent and recovery records as one chronological list. Nothing is inferred. */
+/** Monitor and agent records as one chronological list. Nothing is inferred. */
 function timeline(i: Incident, walk: Walkthrough | null, demo: boolean): Entry[] {
   const out: Entry[] = i.events.map((e) => ({ at: e.at, label: EVENT_LABEL[e.type] ?? e.type, detail: demo ? undefined : e.message, source: "Monitor" }));
   for (const s of walk?.steps ?? []) {
@@ -78,9 +65,6 @@ function timeline(i: Incident, walk: Walkthrough | null, demo: boolean): Entry[]
       merge: s.state === "failed" ? "PR closed without merge" : "PR merged",
     }[s.key];
     if (label) out.push({ at: s.ended_at, label, detail: s.key === "investigated" ? s.summary : undefined, source: "Investigation" });
-  }
-  for (const e of i.recovery?.events ?? []) {
-    out.push({ at: e.at, label: RECOVERY_EVENT[e.type] ?? e.type.replaceAll("_", " "), detail: e.message, source: e.checkout_id ? `Recovery · ${e.checkout_id}` : "Recovery" });
   }
   return out.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 }
@@ -154,7 +138,6 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
         const rec = invDetails.recommendation as Rec | undefined;
         const ver = invDetails.verification as Verification | undefined;
         const prUrl = ((steps.pr?.details as Record<string, unknown> | undefined)?.url as string | undefined) ?? run?.pr_url ?? i.links.find((l) => l.kind === "repair_pr")?.url;
-        const fixVerification = (steps.fresh?.details as Record<string, unknown> | undefined)?.fix_verification as { fresh_checkout_check_id?: string } | undefined;
         const latest = i.evidence.latest_failure as { probes?: { functional?: { details?: { failed_checks?: string[] } } } } | undefined;
         const failedChecks = latest?.probes?.functional?.details?.failed_checks ?? handoff.data?.probe_failures.map((f) => f.check) ?? [];
         const elapsed = i.state === "open" ? (now - new Date(i.started_at).getTime()) / 1000 : i.duration_seconds;
@@ -188,7 +171,7 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                   : issues ? `Sentry · ${issues.length} unresolved issue${issues.length === 1 ? "" : "s"}`
                   : deploys ? "Vercel · production deploy failed"
                   : runs ? `GitHub Actions · ${runs.map((r) => r.workflow).join(", ")}`
-                  : demo ? `Service ${i.severity}` : `${functionalLabel(i.service_id)} · ${FAILURE_LABELS[i.failure_type ?? ""] ?? i.failure_type ?? "—"}`}
+                  : demo ? `Service ${i.severity}` : `Functional check · ${FAILURE_LABELS[i.failure_type ?? ""] ?? i.failure_type ?? "—"}`}
                 {!demo && failedChecks.length > 0 && <span className="block truncate font-mono text-xs text-muted" title={failedChecks.join(", ")}>{failedChecks.join(", ")}</span>}
               </Field>
               <Field label="Current phase"><Badge tone={p.tone}>{p.label}</Badge></Field>
@@ -200,7 +183,7 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                 <dl className="divide-y divide-line">
                   <Field label="Now"><StatusText status={i.service_health} label={hp.health} /></Field>
                   <Field label="Fresh check">
-                    {i.service_recovered_at ? <span className="tabular">Passed {clock(i.service_recovered_at, true)}</span> : i.state === "resolved" ? "Passed" : "Not passed yet"}
+                    {i.resolved_at ? <span className="tabular">Passed {clock(i.resolved_at, true)}</span> : "Not passed yet"}
                     {i.recovery_check_id && <span className="block font-mono text-xs text-muted">{i.recovery_check_id}</span>}
                   </Field>
                 </dl>
@@ -351,8 +334,7 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                           {lastTestLine && <span className="block truncate font-mono text-xs text-muted" title={lastTestLine}>{lastTestLine}</span>}</>}
                     </Field>
                     <Field label="After deployment">
-                      {fixVerification?.fresh_checkout_check_id ? <StatusText status="operational" label="Fresh check passed on the deployed fix" />
-                        : i.service_recovered_at ? <StatusText status="operational" label={`Fresh check passed ${clock(i.service_recovered_at)}`} />
+                      {i.resolved_at ? <StatusText status="operational" label={`Fresh check passed ${clock(i.resolved_at)}`} />
                         : <span className="text-muted">Not deployed or not checked yet</span>}
                     </Field>
                   </dl>
@@ -397,18 +379,6 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
               </Section>
             )}
 
-            {(i.recovery || i.recovery_phase) && (
-              <Section title="Affected checkouts" aside={i.recovery ? `${i.recovery.attempts.length} checkout${i.recovery.attempts.length === 1 ? "" : "s"} · ${hp.progress}` : undefined}>
-                {i.recovery ? <AffectedCheckouts recovery={i.recovery} />
-                  : <p className="px-4 py-3 text-sm text-muted sm:px-5">A fresh check passed. The recovery worker has not picked this incident up yet.</p>}
-                {i.recovery && i.recovery.workers.length > 0 && (
-                  <More summary={`Recovery workers (${i.recovery.workers.length})`}>
-                    <ul className="space-y-0.5 font-mono text-xs text-muted">{i.recovery.workers.map((w, n) => <li key={w}>{w}{n < i.recovery!.workers.length - 1 ? " · replaced" : ""}</li>)}</ul>
-                  </More>
-                )}
-              </Section>
-            )}
-
             <Section title="Timeline" aside={`${entries.length} events`}>
               <ol className="divide-y divide-line">
                 {entries.map((e, n) => (
@@ -421,7 +391,7 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                     <p className="col-start-2 truncate text-xs text-faint sm:col-start-auto sm:text-right">{e.source}</p>
                   </li>
                 ))}
-                {i.state === "open" && !i.recovery_phase && (
+                {i.state === "open" && (
                   <li className="px-4 py-2.5 text-sm text-muted sm:px-5">Still failing · last failure <span className="tabular">{clock(i.last_failure_at, true)}</span></li>
                 )}
               </ol>

@@ -6,7 +6,7 @@ body:
     id: component
     attributes:
       label: Component
-      options: [Dashboard (web), Uptime API, Repair agent, NovaMart demo app, NovaConnect demo app, Other]
+      options: [Dashboard (web), Uptime API, Repair agent, Other]
     validations:
       required: true
   - type: textarea

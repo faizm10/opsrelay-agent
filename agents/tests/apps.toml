@@ -1,6 +1,6 @@
 # Test-only app config: the stand-in Shopping and Messaging fixtures built by
 # support.py and messaging_support.py. conftest.py points OPSRELAY_APPS_CONFIG here.
-# Tests against Taha's real NovaMart app use agents/apps.toml instead.
+# shopping-web stands in for a frontend app (kind = "node").
 
 [apps.shopping]
 root = "shopping"
@@ -15,3 +15,12 @@ source_dirs = ["message-platform/src"]
 test_dir = "tests"
 pytest_args = ["-q", "-p", "no:cacheprovider", "--no-header", "-rfE"]
 timeout_seconds = 120
+
+[apps.shopping-web]
+kind = "node"
+root = "shopping/frontend"
+source_dirs = ["shopping/frontend/src", "shopping/frontend/tsconfig.json"]
+install = ["npm", "ci", "--no-audit", "--no-fund"]
+checks = [["npm", "run", "typecheck"], ["npm", "run", "build"]]
+timeout_seconds = 600
+baseline_runs = 1

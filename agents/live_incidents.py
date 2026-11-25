@@ -411,8 +411,8 @@ class LiveWatcher:
 
 
 def live_services() -> list[str]:
-    """Services to watch. Default: both of Taha's apps. OPSRELAY_LIVE_SERVICES=none turns it off."""
-    raw = os.getenv("OPSRELAY_LIVE_SERVICES", "shopping,messaging")
+    """Services to watch, from OPSRELAY_LIVE_SERVICES (e.g. ``messaging``). Off when unset or ``none``."""
+    raw = os.getenv("OPSRELAY_LIVE_SERVICES", "")
     if raw.strip().lower() in ("none", "off", "0", ""):
         return []
     services = [s.strip() for s in raw.split(",") if s.strip()]

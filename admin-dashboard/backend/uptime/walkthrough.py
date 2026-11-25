@@ -1,5 +1,5 @@
-"""One incident as an ordered list of steps, from what the monitor, the repair agent and the
-recovery worker recorded. A step with no record is waiting or skipped; nothing is inferred."""
+"""One incident as an ordered list of steps, from what the monitor and the repair agent
+recorded. A step with no record is waiting or skipped; nothing is inferred."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 from .models import Incident
 
 # Seconds a step may run before it counts as slow. The human merge has no limit.
-EXPECTED = {"similar": 120, "investigated": 600, "pr": 120, "fresh": 300, "reconciled": 300}
+EXPECTED = {"similar": 120, "investigated": 600, "pr": 120, "fresh": 300}
 AGENT_STEPS = {"similar": "memory_retrieved", "investigated": "patch_verified", "pr": "pr_confirmed"}
 
 
@@ -18,11 +18,11 @@ def _last(steps: list[dict], stage: str, outcome: str | None = None) -> dict | N
     return found[-1] if found else None
 
 
-def build(incident: Incident, run: dict | None, recovery: dict | None, now: datetime) -> dict[str, Any]:
+def build(incident: Incident, run: dict | None, now: datetime) -> dict[str, Any]:
     agent = (run or {}).get("incident") or {}
     steps = (run or {}).get("steps") or []
     status = agent.get("status")
-    verified = {k: agent.get(k) for k in ("verification", "deployed_fix_verified")}
+    verified = {"verification": agent.get("verification")}
     out: list[dict[str, Any]] = []
 
     def add(key, label, state, at=None, summary="", details=None, started=None):
@@ -79,23 +79,10 @@ def build(incident: Incident, run: dict | None, recovery: dict | None, now: date
         else:
             add("merge", "Human merge", no_agent, summary=no_agent_text)
 
-    fresh_at = incident.service_recovered_at or incident.resolved_at
-    add("fresh", "Fresh checkout passed", "done" if fresh_at else "waiting", fresh_at,
+    fresh_at = incident.resolved_at
+    add("fresh", "Fresh check passed", "done" if fresh_at else "waiting", fresh_at,
         "A fresh check passed; the service is operational" if fresh_at else "Waiting for a passing check",
-        {"check_id": incident.recovery_check_id, "fix_verification": verified["deployed_fix_verified"]})
-
-    phase = (recovery or {}).get("phase")
-    attempts = (recovery or {}).get("attempts") or []
-    if recovery is None and not incident.recovery_phase:
-        add("reconciled", "Interrupted checkouts reconciled", "skipped" if incident.state == "resolved" else "waiting",
-            summary="No interrupted checkouts recorded")
-    else:
-        final = sum(1 for a in attempts if a.get("final"))
-        state = {"complete": "done", "needs_review": "needs_review"}.get(phase, "running")
-        add("reconciled", "Interrupted checkouts reconciled", state, (recovery or {}).get("completed_at"),
-            f"{final} of {len(attempts)} checkout(s) have a verified outcome",
-            {"attempts": attempts, "workers": (recovery or {}).get("workers") or [],
-             "events": (recovery or {}).get("events") or []}, (recovery or {}).get("created_at"))
+        {"check_id": incident.recovery_check_id})
 
     add("resolved", "Resolved", "done" if incident.state == "resolved" else "waiting", incident.resolved_at,
         "Incident closed" if incident.state == "resolved" else "Open")

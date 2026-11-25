@@ -15,7 +15,7 @@ const COLS = "lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_7.5rem_minma
 
 function ServiceRow({ s, window }: { s: ServiceOverview; window: Window }) {
   const now = useNow();
-  const facts = checkFacts(s.id, s.latest_check);
+  const facts = checkFacts(s.latest_check);
   return (
     <li className={`border-t border-line px-4 py-4 first:border-t-0 sm:px-5 ${COLS} lg:items-center`}>
       <div className="min-w-0">

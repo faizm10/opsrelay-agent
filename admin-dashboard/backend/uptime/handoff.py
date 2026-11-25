@@ -42,7 +42,7 @@ NEXT_STEPS = {
     ],
     "investigate": [
         "Read the failing probe checks below; they name the business rule and a source hint.",
-        "Compare with the latest commits and the app's CI status (Shopping CI / Messaging CI).",
+        "Compare with the latest commits and the app's CI status.",
         "Reproduce with the app's pytest suite before proposing any patch (agents verifier).",
     ],
 }

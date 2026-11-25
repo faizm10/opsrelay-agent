@@ -279,12 +279,6 @@ class SqliteStorage:
     def get_agent_activity(self, uptime_incident_id: str) -> dict[str, Any] | None:
         return None  # agent incidents and workflow steps live in MongoDB only
 
-    def get_recovery(self, uptime_incident_id: str) -> dict[str, Any] | None:
-        return None
-
-    def supports_recovery(self) -> bool:
-        return False
-
     # --------------------------------------------------------------- accounts
     def insert_doc(self, kind: str, doc_id: str, doc: dict[str, Any]) -> bool:
         cur = self._exec("INSERT OR IGNORE INTO account_docs(kind, id, doc) VALUES (?,?,?)", (kind, doc_id, json.dumps(seal(kind, doc))))

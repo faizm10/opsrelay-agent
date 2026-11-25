@@ -20,8 +20,8 @@ DEFAULT_MODEL = "gpt-4.1-mini"
 TIMEOUT_SECONDS = 60
 MAX_TURNS = 12
 
-SYSTEM_PROMPT = """You are the OpsRelay assistant on a service status dashboard. OpsRelay watches two demo apps,
-NovaMart (an online shop) and NovaConnect (a messaging app). When an app breaks, an AI repair agent investigates,
+SYSTEM_PROMPT = """You are the OpsRelay assistant on a service status dashboard. OpsRelay watches the services and
+repositories a workspace has connected. When a service breaks, an AI repair agent investigates,
 writes a fix, tests it and opens a pull request (PR) on GitHub for a person to review and merge.
 
 Answer questions about what is happening using only the status snapshot below.

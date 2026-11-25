@@ -80,7 +80,3 @@ class Storage(Protocol):
     def get_agent_findings(self, uptime_incident_id: str) -> dict[str, Any] | None: ...
     def get_agent_run(self, uptime_incident_id: str) -> dict[str, Any] | None:
         """The agent's incident and its recorded steps, safe fields only (MongoDB only)."""
-    def get_recovery(self, uptime_incident_id: str) -> dict[str, Any] | None:
-        """The agents' reconciliation of interrupted records for this incident (MongoDB only)."""
-    def supports_recovery(self) -> bool:
-        """Whether the OpsRelay recovery worker can see this storage (it runs on MongoDB only)."""

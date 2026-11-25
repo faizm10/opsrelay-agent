@@ -2,9 +2,7 @@ import type { Tone } from "@/components/ui";
 import type { Check, Incident, Status } from "./api";
 import { STATUS_META } from "./format";
 
-/** What each service's functional probe exercises. */
-const FUNCTIONAL: Record<string, string> = { novamart: "Checkout", novaconnect: "Messaging" };
-export const functionalLabel = (serviceId: string) => FUNCTIONAL[serviceId] ?? "Functional check";
+const FUNCTIONAL = "Functional check";
 
 export type Phase = { label: string; next: string; tone: Tone };
 
@@ -13,21 +11,9 @@ export function agentRun(i: Incident) {
   return i.related_ci.find((c) => c.id.endsWith(`#${i.id}`)) ?? null;
 }
 
-export function unsettled(i: Incident): number {
-  return (i.recovery?.attempts ?? []).filter((a) => !a.final).length;
-}
-
-/** Incident progress in plain words, from the recorded incident, recovery and agent states. */
+/** Incident progress in plain words, from the recorded incident and agent states. */
 export function phase(i: Incident): Phase {
   if (i.state === "resolved") return { label: "Resolved", next: "No action needed", tone: "ok" };
-  if (i.recovery_phase === "recovering") {
-    if (i.recovery_status === "needs_review") {
-      return { label: "Recovering interrupted checkouts · needs review", next: "Review the checkouts below that are missing evidence", tone: "warn" };
-    }
-    const left = unsettled(i);
-    return { label: "Recovering interrupted checkouts", tone: "accent",
-      next: i.recovery ? `The recovery worker is settling ${left} interrupted checkout${left === 1 ? "" : "s"}` : "Waiting for the recovery worker to pick this up" };
-  }
   const run = agentRun(i);
   const merged = i.events.some((e) => e.type === "fix_merged");
   switch (run?.status) {
@@ -47,30 +33,27 @@ export function phase(i: Incident): Phase {
   return { label: "Awaiting investigation", next: "An investigation usually starts within a minute", tone: "neutral" };
 }
 
-/** "Checkout operational · 1 interrupted checkout to recover" */
+/** "Better Stack monitor down · Investigating" */
 export function healthAndProgress(i: Incident): { health: string; progress: string } {
   const source = i.evidence.source === "betterstack" ? "Better Stack monitor"
     : i.evidence.source === "dependabot" ? "Dependencies"
     : i.evidence.source === "sentry" ? "Sentry"
     : i.evidence.source === "vercel" ? "Production deploy"
-    : i.evidence.source === "actions" ? "CI" : functionalLabel(i.service_id);
+    : i.evidence.source === "actions" ? "CI" : FUNCTIONAL;
   const health = `${source} ${STATUS_META[i.service_health].label.toLowerCase()}`;
-  const left = unsettled(i);
-  const progress = i.state === "resolved" ? "Incident resolved"
-    : i.recovery_phase === "recovering" ? (i.recovery ? `${left} interrupted checkout${left === 1 ? "" : "s"} to recover` : "Interrupted checkouts not collected yet")
-    : phase(i).label;
+  const progress = i.state === "resolved" ? "Incident resolved" : phase(i).label;
   return { health, progress };
 }
 
 export type Fact = { label: string; status: Status; detail?: string };
 
 /** The separate layers of the latest check: website, API and the functional probe. */
-export function checkFacts(serviceId: string, c: Check | null | undefined): Fact[] {
+export function checkFacts(c: Check | null | undefined): Fact[] {
   if (!c) return [];
   const facts: Fact[] = [];
   if (c.frontend) facts.push({ label: c.frontend.ok ? "Website reachable" : "Website unreachable", status: c.frontend.ok ? "operational" : "down" });
   if (c.availability) facts.push({ label: c.availability.ok ? "API reachable" : "API unreachable", status: c.availability.ok ? "operational" : "down" });
-  const name = functionalLabel(serviceId);
+  const name = FUNCTIONAL;
   if (c.functional) {
     const failed = c.functional.details?.failed_checks ?? [];
     facts.push({ label: c.functional.ok ? `${name} passing` : `${name} failing`, status: c.functional.ok ? "operational" : "degraded",

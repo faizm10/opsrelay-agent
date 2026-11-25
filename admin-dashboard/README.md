@@ -1,22 +1,23 @@
 # OpsRelay Uptime Monitoring & Status Dashboard
 
-Real availability **and** functional monitoring for the two OpsRelay demo apps, with a dark,
+Real availability **and** functional monitoring for each workspace's sites, with a dark,
 status-page-style dashboard.
 
-- A **monitoring worker** probes NovaMart and NovaConnect every **30 seconds**. It runs independently of any browser, records every check, tracks status, and opens, updates and resolves incidents.
+- A **monitoring worker** probes every monitored service on a fixed interval. It runs independently of any browser, records every check, tracks status, and opens, updates and resolves incidents.
 - An **uptime API** (FastAPI) serves typed status, uptime, check, latency and incident data. Mutation endpoints need no token, so keep the API on localhost.
 - A **status dashboard** (Next.js) refreshes live without page reloads.
 - A **hand-off document** per incident lets the existing AI investigation pipeline pick up the evidence.
 
 A homepage returning HTTP 200 is **not** treated as healthy. Each service gets three probes per cycle:
 
-| Probe | NovaMart | NovaConnect | Failing it means |
-| --- | --- | --- | --- |
-| Website | `GET http://localhost:3100` | `GET http://localhost:3200` | **down** |
-| Availability | `GET :8100/api/health` → `{"status":"ok"}` | `GET :8200/health` → `{"status":"ok"}` | **down** |
-| Functional | `GET :8100/api/health/checkout` → 200 `healthy` / 503 `unhealthy` | `GET :8200/api/monitor/probe` → 200 `healthy` / 503 `unhealthy` | **degraded** |
+| Probe | Request | Failing it means |
+| --- | --- | --- |
+| Website | `GET` the page URL | **down** |
+| Availability | `GET` the health URL → `{"status":"ok"}` | **down** |
+| Functional | `GET`/`POST` the functional path → 200 `healthy` / 503 `unhealthy`, with the failed checks | **degraded** |
 
-These endpoints were confirmed from each app's code (`shopping/backend/app/main.py`, `message-platform/backend/app/main.py`). Both functional probes are side-effect free: they create no orders and send no real messages.
+The availability and functional probes are optional per service (`uptime/models.py` `ServiceConfig`). A functional probe
+should be side-effect free.
 
 | Status | Meaning |
 | --- | --- |
@@ -67,9 +68,9 @@ admin-dashboard/
 ```
 
 ```
- NovaMart :3100/:8100 ─┐                         ┌──────────────► MongoDB Atlas (uptime_* collections)
- NovaConnect :3200/:8200┤◄── probes every 30 s ── worker ──┤        or local dev SQLite (clearly labelled)
-                        │                                 └── incidents ──► /incidents/{id}/evidence ──► AI pipeline
+ Monitored sites ◄── probes on an interval ── worker ──┬──────────────► MongoDB Atlas (uptime_* collections)
+                                                      │                or local dev SQLite (clearly labelled)
+                                                      └── incidents ──► /incidents/{id}/evidence ──► AI pipeline
  Browser ── :3300 Next.js ── /api proxy (server-side) ── :8300 uptime API ── storage
 ```
 
@@ -79,7 +80,7 @@ The browser only talks to Next.js. `/api/*` is proxied server-side, so the datab
 
 ## Setup
 
-Prerequisites: Python 3.11+, Node 18.18+, and NovaMart and NovaConnect running on their usual ports (see their READMEs).
+Prerequisites: Python 3.11+ and Node 18.18+.
 
 ```bash
 cd admin-dashboard

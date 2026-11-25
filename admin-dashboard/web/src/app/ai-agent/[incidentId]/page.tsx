@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, ArrowUpRight, Check, Circle, CircleAlert, Minus, X } from "lucide-react";
-import { AttemptRow } from "@/components/recovery";
 import { Badge, ErrorPanel, PageHeader, Shell, Skeleton, type Tone } from "@/components/ui";
-import { type RecoveryAttempt, type StepState, type WalkStep, type Walkthrough, usePoll } from "@/lib/api";
+import { type StepState, type WalkStep, type Walkthrough, usePoll } from "@/lib/api";
 import { clock, duration } from "@/lib/format";
 
 const STATE: Record<StepState, { label: string; tone: Tone }> = {
@@ -90,10 +89,6 @@ function Detail({ step }: { step: WalkStep }) {
   const rec = d.recommendation as Rec | undefined;
   const ver = d.verification as Verification | undefined;
   const matches = d.matches as { memory_id: string; score: number }[] | undefined;
-  const attempts = d.attempts as RecoveryAttempt[] | undefined;
-  const workers = d.workers as string[] | undefined;
-  const events = d.events as { at: string; message: string; worker_id?: string }[] | undefined;
-  const fixVerification = d.fix_verification as Record<string, unknown> | undefined;
   const prUrl = (d.url ?? d.pr_url) as string | undefined;
   return (
     <section className="panel space-y-4 p-5 sm:p-6" aria-live="polite">
@@ -133,31 +128,6 @@ function Detail({ step }: { step: WalkStep }) {
       )}
       {prUrl && (
         <a href={prUrl} target="_blank" rel="noreferrer" className="btn">Open the draft PR <ArrowUpRight className="h-3.5 w-3.5" /></a>
-      )}
-      {fixVerification && (
-        <Section title="Deployed fix verified">
-          <Rows rows={[["Fresh checkout", fixVerification.fresh_checkout_check_id as string],
-            ["Checkouts settled", fixVerification.interrupted_checkouts_settled as number]]} />
-        </Section>
-      )}
-      {!!workers?.length && (
-        <Section title={`Recovery workers (${workers.length})`}>
-          <ul className="flex flex-wrap gap-2">{workers.map((w, i) => (
-            <li key={w}><Badge tone={i === workers.length - 1 ? "accent" : "neutral"}>{w}{i < workers.length - 1 ? " · replaced" : ""}</Badge></li>
-          ))}</ul>
-        </Section>
-      )}
-      {!!attempts?.length && (
-        <Section title="Interrupted checkouts">
-          <ul className="-mx-5 divide-y divide-line border-y border-line sm:-mx-6">{attempts.map((a) => <AttemptRow key={a.checkout_id} a={a} />)}</ul>
-        </Section>
-      )}
-      {!!events?.length && (
-        <Section title="Recovery log">
-          <ol className="space-y-1.5 text-xs text-muted">{events.map((e, n) => (
-            <li key={n}><span className="text-faint">{clock(e.at, true)}</span> {e.message}</li>
-          ))}</ol>
-        </Section>
       )}
     </section>
   );
