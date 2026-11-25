@@ -209,7 +209,8 @@ function MappingField({ mapping, label, saved, path, field, pattern, placeholder
 /** The repair agent is off until switched on, and then only reports (no PR) unless draft PRs are chosen. */
 function AgentControl({ mapping, config, onSaved }: { mapping: Mapping; config: AgentConfig; onSaved: () => void }) {
   // Repairs need the worker's own repository and apps.toml; any repository can be diagnosed.
-  const repairable = config.worker_repo?.toLowerCase() === mapping.repo.toLowerCase();
+  // Repair needs the shared worker's repository and at least one code area in agents/apps.toml.
+  const repairable = config.worker_repo?.toLowerCase() === mapping.repo.toLowerCase() && config.apps.length > 0;
   const [mode, setMode] = useState<AgentMode>(repairable || mapping.agent.enabled ? mapping.agent.mode : "diagnose");
   const [app, setApp] = useState(mapping.agent.app ?? config.apps[0] ?? "");
   const [error, setError] = useState("");
