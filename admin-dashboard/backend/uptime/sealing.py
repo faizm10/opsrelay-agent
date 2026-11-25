@@ -1,15 +1,19 @@
 """Encrypts connector credentials at rest (Fernet, key in OPSRELAY_SECRET_KEY).
 
 Both storage backends seal these fields on write and open them on read, so the rest of the API
-only sees plaintext. Values without the prefix are pre-encryption plaintext; `python -m uptime
+only sees plaintext. A credential sealed with an earlier key reads as missing, so after a key rotation
+the workspace reconnects instead of every page failing. Values without the prefix are pre-encryption plaintext; `python -m uptime
 seal-secrets` rewrites them. The agent worker opens GitHub tokens with the same key and format.
 """
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
+
+log = logging.getLogger("uptime.sealing")
 
 SECRET_FIELDS: dict[str, tuple[str, ...]] = {
     "github": ("token",),
@@ -48,7 +52,12 @@ def unseal(kind: str, doc: dict | None) -> dict | None:
     if not doc:
         return doc
     fields = [f for f in SECRET_FIELDS.get(kind, ()) if isinstance(doc.get(f), str) and doc[f].startswith(PREFIX)]
-    return {**doc, **{f: _box().decrypt(doc[f][len(PREFIX):].encode()).decode() for f in fields}} if fields else doc
+    try:
+        return {**doc, **{f: _box().decrypt(doc[f][len(PREFIX):].encode()).decode() for f in fields}} if fields else doc
+    except InvalidToken:
+        log.warning("%s credentials of workspace %s were sealed with another OPSRELAY_SECRET_KEY; treating them as not set",
+                    kind, doc.get("workspace_id", "?"))
+        return None
 
 
 def reseal_all(storage) -> int:

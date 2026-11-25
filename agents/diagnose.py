@@ -21,7 +21,7 @@ from datetime import timedelta
 from typing import Callable, Literal
 
 import httpx
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from pydantic import BaseModel, Field
 from pymongo.database import Database
 
@@ -103,9 +103,13 @@ def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transpor
         ws, conn = mapping["workspace_id"], db[GITHUB].find_one({"_id": mapping["workspace_id"]})
         if conn is None:
             continue
-        gh = GitHubReader(open_token(conn["token"]), transport)
-        own = db[OPENAI].find_one({"_id": ws}) if own_llm else None
-        ws_llm = own_llm(open_token(own["key"])) if own else None
+        try:
+            gh = GitHubReader(open_token(conn["token"]), transport)
+            own = db[OPENAI].find_one({"_id": ws}) if own_llm else None
+            ws_llm = own_llm(open_token(own["key"])) if own else None
+        except InvalidToken:
+            log.warning("credentials of workspace %s were sealed with another OPSRELAY_SECRET_KEY; skipping until it reconnects", ws)
+            continue
         prefix = mapping["_id"]
         for incident in db[UPTIME_INCIDENTS].find({"state": "open", "service_id": {"$regex": f"^{re.escape(prefix)}(#|$)"}}):
             fingerprint = hashlib.sha256(str(incident.get("summary")).encode()).hexdigest()[:16]
