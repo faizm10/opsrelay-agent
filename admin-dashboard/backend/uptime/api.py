@@ -31,7 +31,7 @@ from .dependencies import DependencyCheck, check_dependencies
 from .handoff import build_handoff
 from .models import CheckRecord, Incident, IncidentEvent, IncidentLink, ServiceConfig, ServiceState, Status, WorkerState
 from .storage import open_storage
-from .storage.base import Storage
+from .storage.base import Storage, iso
 from .uptime_calc import WINDOWS, compute_uptime, latency_series, needed_since, uptime_bars
 from .worker import UptimeMonitor, utcnow
 
@@ -101,6 +101,8 @@ class IncidentOut(Incident):
     service_health: Status = "unknown"
     # The repair agent setting of the repository this incident belongs to (detail view only).
     repo_agent: dict[str, Any] | None = None
+    # When someone asked the agent to diagnose this incident on its next run (detail view only).
+    diagnosis_requested_at: str | None = None
 
 
 class MonitoringHealth(BaseModel):
@@ -433,8 +435,9 @@ def create_app(
                                current=current(service, now), uptime=stats, bars=b, latest_check=checks[0] if checks else None)
 
     def incident_out(incident: Incident, now: datetime, *, related: bool = False) -> IncidentOut:
-        related_ci, repo_agent = [], None
+        related_ci, repo_agent, requested = [], None, None
         if related:
+            requested = (storage.get_doc("diagnosis_requests", incident.id) or {}).get("requested_at")
             mapping = storage.get_doc("repos", incident.service_id.split("#")[0])
             repo_agent = (mapping.get("agent") or {"enabled": False, "mode": "report_only"}) if mapping else None
             for doc in storage.find_agent_incidents(incident.app, incident.started_at, incident.resolved_at or now):
@@ -447,7 +450,7 @@ def create_app(
         return IncidentOut(**incident.model_dump(), duration_seconds=incident.elapsed_seconds(now),
                            service_name=service_name(incident.service_id), related_ci=related_ci,
                            service_health=alert_health(incident) or (state.status if state else "unknown"),
-                           repo_agent=repo_agent)
+                           repo_agent=repo_agent, diagnosis_requested_at=requested)
 
     def alert_health(incident: Incident) -> str | None:
         """For alert-only sources the open incident is the health signal: its severity while open."""
@@ -883,6 +886,20 @@ def create_app(
         """The agent worker's diagnosis (diagnose mode), or null until it has one."""
         incident_or_404(incident_id, ws)
         return ok(storage.get_doc("diagnoses", incident_id))
+
+    @app.post("/api/v1/incidents/{incident_id}/diagnosis", response_model=Envelope[dict[str, Any]])
+    def request_diagnosis(incident_id: str, ws: str = Depends(workspace)):
+        """Queue the incident for the next diagnose run, even if it was diagnosed before."""
+        incident = incident_or_404(incident_id, ws)
+        agent = (storage.get_doc("repos", incident.service_id.split("#")[0]) or {}).get("agent") or {}
+        if not (agent.get("enabled") and agent.get("mode") == "diagnose"):
+            raise HTTPException(409, "Switch this repository's agent on in diagnose mode under Repositories first.")
+        if incident.state != "open":
+            raise HTTPException(409, "This incident is resolved.")
+        limit(f"diagnose:{ws}", 10, 3600)
+        doc = {"workspace_id": ws, "requested_at": iso(clock())}
+        storage.put_doc("diagnosis_requests", incident_id, doc)
+        return ok(doc)
 
     # ---------------------------------------------------------- mutations
     @app.get("/api/v1/sites", response_model=Envelope[list[dict[str, Any]]])

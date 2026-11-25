@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
+import { use, useState } from "react";
 import { ArrowLeft, ArrowUpRight, GitPullRequest } from "lucide-react";
 import { Badge, ErrorPanel, Shell, Skeleton, StatusText } from "@/components/ui";
-import { type Incident, type Walkthrough, isDemoIncident, usePoll } from "@/lib/api";
+import { type Incident, type Walkthrough, isDemoIncident, send, usePoll } from "@/lib/api";
 import { FAILURE_LABELS, clock, duration, useNow } from "@/lib/format";
 import { agentRun, healthAndProgress, phase } from "@/lib/phase";
 import { plainFailure } from "@/lib/plain";
@@ -81,6 +81,33 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="min-w-0 px-4 py-3 sm:px-5">
       <dt className="text-xs text-muted">{label}</dt>
       <dd className="mt-0.5 text-sm text-ink">{children}</dd>
+    </div>
+  );
+}
+
+function RunAgent({ id, requestedAt, again, onQueued }: { id: string; requestedAt?: string | null; again: boolean; onQueued: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const queue = async () => {
+    setPending(true);
+    setError("");
+    try {
+      await send("POST", `/api/v1/incidents/${encodeURIComponent(id)}/diagnosis`);
+      onQueued();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3 text-sm sm:px-5">
+      {requestedAt ? (
+        <span className="text-muted">Queued {clock(requestedAt, true)}. The agent picks it up on its next run, within about 5 minutes.</span>
+      ) : (
+        <button type="button" className="btn" disabled={pending} onClick={queue}>{again ? "Run the agent again" : "Run the agent now"}</button>
+      )}
+      {error && <span className="text-crit" role="alert">{error}</span>}
     </div>
   );
 }
@@ -327,6 +354,10 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                       : <>Nothing yet. This service has no repository mapped, so the agent can&apos;t look at it. Map one under{" "}
                         <Link href="/repositories" className="text-accent hover:underline">Repositories</Link>.</>}
                   </p>
+                )}
+                {agent?.enabled && agent.mode === "diagnose" && !run && i.state === "open" && (
+                  <RunAgent id={i.id} requestedAt={i.diagnosis_requested_at} again={!!diagnosis.data}
+                    onQueued={() => { inc.reload(); diagnosis.reload(); }} />
                 )}
                 {ver?.test_output && <More summary="Test output"><pre className={pre}>{ver.test_output}</pre></More>}
                 {!!rec?.evidence?.length && (

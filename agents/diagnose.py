@@ -5,7 +5,7 @@ incident on that service (failing GitHub Actions runs, downtime, failed deploys,
 diagnosis: evidence read with the workspace's own GitHub token (failed job logs, the failing commit,
 recent commits) is summarised by the model into a likely cause and a suggested fix, which the
 dashboard shows on the incident. Nothing is cloned or executed. The incident is diagnosed again when
-its summary changes. Each workspace gets at most OPSRELAY_DIAGNOSES_PER_DAY (default 10) model calls
+its summary changes or someone asks for a run from the incident page. Each workspace gets at most OPSRELAY_DIAGNOSES_PER_DAY (default 10) model calls
 per 24 hours, so one workspace's broken CI can't spend the shared budget.
 """
 from __future__ import annotations
@@ -29,6 +29,7 @@ from agents.llm import StructuredLLM, untrusted_block
 log = logging.getLogger("agents.diagnose")
 # Dashboard collections (admin-dashboard/backend/uptime/storage/mongo.py); only DIAGNOSES and USAGE are written.
 REPOS, GITHUB, DIAGNOSES, USAGE = "opsrelay_repos", "opsrelay_github", "opsrelay_diagnoses", "opsrelay_diagnosis_usage"
+REQUESTS = "opsrelay_diagnosis_requests"  # "Run the agent now" on the incident page
 UPTIME_INCIDENTS = "uptime_incidents"
 SEALED = "enc:v1:"  # admin-dashboard/backend/uptime/sealing.py
 FAILED = {"failure", "timed_out", "startup_failure"}
@@ -102,7 +103,8 @@ def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transpor
         prefix = mapping["_id"]
         for incident in db[UPTIME_INCIDENTS].find({"state": "open", "service_id": {"$regex": f"^{re.escape(prefix)}(#|$)"}}):
             fingerprint = hashlib.sha256(str(incident.get("summary")).encode()).hexdigest()[:16]
-            if (db[DIAGNOSES].find_one({"_id": incident["_id"]}, {"fingerprint": 1}) or {}).get("fingerprint") == fingerprint:
+            requested = db[REQUESTS].find_one({"_id": incident["_id"]})
+            if not requested and (db[DIAGNOSES].find_one({"_id": incident["_id"]}, {"fingerprint": 1}) or {}).get("fingerprint") == fingerprint:
                 continue
             if db[USAGE].count_documents({"workspace_id": ws, "at": {"$gte": now - timedelta(days=1)}}) >= per_day:
                 log.info("diagnosis limit reached for workspace %s", ws)
@@ -117,6 +119,7 @@ def run(db: Database, llm: StructuredLLM, redact: Callable[[str], str], transpor
             db[DIAGNOSES].replace_one({"_id": incident["_id"]}, {
                 **result.model_dump(), "workspace_id": ws, "incident_id": incident["_id"], "repo": mapping["repo"],
                 "fingerprint": fingerprint, "created_at": now}, upsert=True)
+            db[REQUESTS].delete_one({"_id": incident["_id"]})
             written += 1
     return written
 
