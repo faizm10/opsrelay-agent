@@ -146,8 +146,15 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
       ) : (() => {
         const run = agentRun(i);
         // Diagnose mode writes a diagnosis without a repair run; that is the agent's answer for this incident.
+        const agent = i.repo_agent;
+        const waiting = !run && !diagnosis.data && i.state === "open";
+        const agentText = agent?.enabled
+          ? `The agent is on for this repository${agent.mode === "diagnose" ? " (diagnose mode)" : ""}. Its findings appear here after its next run.`
+          : "The agent is off for this repository.";
         const p = diagnosis.data && !run && i.state === "open"
           ? { label: "Diagnosed", next: "Read the likely cause and suggested fix below", tone: "warn" as const }
+          : waiting && agent ? { label: agent.enabled ? "Waiting for the agent" : "Agent off",
+              next: agent.enabled ? agentText : `${agentText} Switch it on under Repositories.`, tone: "neutral" as const }
           : phase(i);
         const hp = healthAndProgress(i);
         const steps = Object.fromEntries((walk.data?.steps ?? []).map((s) => [s.key, s]));
@@ -316,9 +323,9 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                   <p className="px-4 py-4 text-sm text-muted sm:px-5">
                     {inv?.state === "skipped" ? "Not a code problem, so no fix is proposed."
                       : run && inv?.summary ? inv.summary
-                      : <>Nothing yet. Findings appear here once the agent has looked at this incident. If this stays empty, check that
-                        the repository&apos;s agent is on under <Link href="/repositories" className="text-accent hover:underline">Repositories</Link>{" "}
-                        and that the agent worker is running.</>}
+                      : agent ? <>{agentText}{!agent.enabled && <> Switch it on under <Link href="/repositories" className="text-accent hover:underline">Repositories</Link>.</>}</>
+                      : <>Nothing yet. This service has no repository mapped, so the agent can&apos;t look at it. Map one under{" "}
+                        <Link href="/repositories" className="text-accent hover:underline">Repositories</Link>.</>}
                   </p>
                 )}
                 {ver?.test_output && <More summary="Test output"><pre className={pre}>{ver.test_output}</pre></More>}
