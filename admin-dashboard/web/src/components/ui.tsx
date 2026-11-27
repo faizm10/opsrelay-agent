@@ -54,7 +54,7 @@ export function PageHeader({ title, sub, children }: { title: React.ReactNode; s
     <div className="mb-8 flex flex-wrap items-end gap-4">
       <div className="min-w-0 flex-1">
         <h1 className="page-title">{title}</h1>
-        {sub && <p className="mt-2 max-w-2xl break-words text-[15px] leading-relaxed text-muted">{sub}</p>}
+        {sub && <p className="mt-2 max-w-2xl wrap-break-word text-[15px] leading-relaxed text-muted">{sub}</p>}
       </div>
       {children}
     </div>
@@ -65,7 +65,7 @@ export function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2.5" aria-label="OpsRelay home">
       <img src="/icon.svg" alt="" width="32" height="32" />
-      <span className="text-xl font-semibold tracking-[-0.05em]">OpsRelay</span>
+      <span className="text-xl font-semibold tracking-tighter">OpsRelay</span>
     </Link>
   );
 }

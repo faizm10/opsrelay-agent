@@ -180,7 +180,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                     <tr key={c.id} className="border-b border-line/60 last:border-0 hover:bg-hover/60">
                       <td className="whitespace-nowrap py-2.5 pr-4 text-muted">
                         {clock(c.checked_at, true)}
-                        {!c.scheduled && <span className="ml-1.5 rounded bg-raised px-1 text-[10px] text-faint">manual</span>}
+                        {!c.scheduled && <span className="ml-1.5 rounded-sm bg-raised px-1 text-[10px] text-faint">manual</span>}
                       </td>
                       <td className="py-2.5 pr-4"><StatusPill status={c.status} /></td>
                       <td className="py-2.5 pr-4"><ProbeCell probe={c.frontend} redact={c.functional?.details.demo_outage} /></td>

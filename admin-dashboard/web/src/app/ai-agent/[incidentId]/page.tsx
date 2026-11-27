@@ -71,7 +71,7 @@ function Rows({ rows }: { rows: [string, React.ReactNode][] }) {
   return (
     <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
       {shown.map(([k, v]) => (
-        <div key={k} className="min-w-0"><dt className="label">{k}</dt><dd className="mt-1 break-words text-ink">{v}</dd></div>
+        <div key={k} className="min-w-0"><dt className="label">{k}</dt><dd className="mt-1 wrap-break-word text-ink">{v}</dd></div>
       ))}
     </dl>
   );

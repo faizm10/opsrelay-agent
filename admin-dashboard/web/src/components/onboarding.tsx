@@ -34,7 +34,7 @@ export function Onboarding({ summary }: { summary: Summary }) {
               : `${done} of ${steps.length} steps done.`}
           </p>
         </div>
-        <button type="button" onClick={dismiss} className="rounded p-1 text-faint hover:text-ink" aria-label="Hide setup checklist" title="Hide">
+        <button type="button" onClick={dismiss} className="rounded-sm p-1 text-faint hover:text-ink" aria-label="Hide setup checklist" title="Hide">
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>

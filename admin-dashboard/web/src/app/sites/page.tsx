@@ -87,13 +87,13 @@ function AddSite({ onAdded }: { onAdded: () => void }) {
         present, must be ok/healthy. The first check runs right away.
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
-        <label className="space-y-1 text-xs"><span className="label">Name</span>
+        <label className="text-xs *:not-first:mt-1"><span className="label">Name</span>
           <input className="input w-full" required maxLength={80} value={form.name} onChange={set("name")} placeholder="Storefront" />
         </label>
-        <label className="space-y-1 text-xs"><span className="label">Page URL</span>
+        <label className="text-xs *:not-first:mt-1"><span className="label">Page URL</span>
           <input className="input w-full" required type="url" value={form.url} onChange={set("url")} placeholder="https://example.com" />
         </label>
-        <label className="space-y-1 text-xs"><span className="label">Health URL (optional)</span>
+        <label className="text-xs *:not-first:mt-1"><span className="label">Health URL (optional)</span>
           <input className="input w-full" type="url" value={form.health_url} onChange={set("health_url")} placeholder="https://api.example.com/health" />
         </label>
       </div>

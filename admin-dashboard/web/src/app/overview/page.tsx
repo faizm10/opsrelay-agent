@@ -19,7 +19,7 @@ function ServiceRow({ s, window }: { s: ServiceOverview; window: Window }) {
   return (
     <li className={`border-t border-line px-4 py-4 first:border-t-0 sm:px-5 ${COLS} lg:items-center`}>
       <div className="min-w-0">
-        <Link href={`/services/${s.id}`} className="break-words font-semibold text-ink hover:underline">{s.name}</Link>
+        <Link href={`/services/${s.id}`} className="wrap-break-word font-semibold text-ink hover:underline">{s.name}</Link>
         <div className="mt-0.5 text-sm">
           <StatusText status={s.current.status} className={s.current.status === "operational" ? "text-muted" : "font-medium text-ink"} />
           {s.current.open_incident_id && (
@@ -90,8 +90,8 @@ function HealthCover({ summary }: { summary: Summary }) {
       <p className="flex items-center gap-2 text-sm text-muted">
         <span className="h-2 w-2 rounded-full" style={{ background: STATUS_META[overall.status].color }} aria-hidden="true" />Service status
       </p>
-      <h1 className="mt-2 break-words text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px]">{overall.label}</h1>
-      {overall.affected_services.length > 0 && <p className="mt-2 break-words text-[15px] text-muted">{overall.affected_services.join(", ")}</p>}
+      <h1 className="mt-2 wrap-break-word text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px]">{overall.label}</h1>
+      {overall.affected_services.length > 0 && <p className="mt-2 wrap-break-word text-[15px] text-muted">{overall.affected_services.join(", ")}</p>}
       <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">
         {(Object.keys(counts) as Status[]).map((status) => (
           <div key={status}>
