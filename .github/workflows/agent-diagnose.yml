@@ -1,6 +1,8 @@
 # Diagnose mode for every workspace: one pass over the open incidents of repositories whose agent is on in
 # diagnose mode (agents/diagnose.py). It reads GitHub with each workspace's own token and never runs their code.
 # Needs the MONGODB_URI, OPENAI_API_KEY and OPSRELAY_SECRET_KEY secrets (the same values as the Vercel project).
+# With the repository variable OPSRELAY_LLM=claude-code it uses a Claude subscription instead of OpenAI: the
+# CLAUDE_CODE_OAUTH_TOKEN secret comes from `claude setup-token`.
 name: agent-diagnose
 
 on:
@@ -23,6 +25,8 @@ jobs:
       MONGODB_DB: opsrelay
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPSRELAY_SECRET_KEY: ${{ secrets.OPSRELAY_SECRET_KEY }}
+      OPSRELAY_LLM: ${{ vars.OPSRELAY_LLM }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,4 +35,6 @@ jobs:
           cache: pip
           cache-dependency-path: agents/requirements.txt
       - run: pip install -r requirements.txt
+      - if: vars.OPSRELAY_LLM == 'claude-code'
+        run: npm install -g @anthropic-ai/claude-code@2.1.311
       - run: python -m agents.diagnose
