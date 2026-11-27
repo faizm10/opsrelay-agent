@@ -22,7 +22,7 @@ export const CommandInput = React.forwardRef<
     <Search className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
     <CommandPrimitive.Input
       ref={ref}
-      className={cn("h-10 w-full bg-transparent text-sm text-ink outline-none placeholder:text-faint disabled:opacity-50", className)}
+      className={cn("h-10 w-full bg-transparent text-sm text-ink outline-hidden placeholder:text-faint disabled:opacity-50", className)}
       {...props}
     />
   </div>
@@ -49,7 +49,7 @@ export const CommandGroup = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Group
     ref={ref}
-    className={cn("p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-faint", className)}
+    className={cn("p-1 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-faint", className)}
     {...props}
   />
 ));
@@ -61,7 +61,7 @@ export const CommandItem = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Item
     ref={ref}
-    className={cn("relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-hover data-[disabled=true]:opacity-50", className)}
+    className={cn("relative flex cursor-pointer select-none items-center gap-2 rounded-xs px-2 py-1.5 text-sm outline-hidden data-[disabled=true]:pointer-events-none data-[selected=true]:bg-hover data-[disabled=true]:opacity-50", className)}
     {...props}
   />
 ));

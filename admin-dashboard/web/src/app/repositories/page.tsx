@@ -148,27 +148,27 @@ function AddRepository({ onAdded }: { onAdded: () => void }) {
       <h2 className="section-title">Add a repository</h2>
       {repos.error && <p className="text-sm text-crit" role="alert">{repos.error.message}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="*:not-first:mt-1.5">
           <label htmlFor="repo-picker" className="label">Repository</label>
           <Combobox id="repo-picker" value={repo} onChange={setRepo} disabled={!repos.data}
             placeholder={repos.data ? "Choose a repository" : "Loading repositories…"} searchPlaceholder="Search repositories…"
             empty="No repository matches." options={(repos.data ?? []).map((r) => ({ value: r.full_name, label: r.full_name, hint: r.private ? "private" : undefined }))} />
         </div>
-        <label className="space-y-1.5">
+        <label className="*:not-first:mt-1.5">
           <span className="label">Service name</span>
           <input className="input" value={form.service_name} onChange={set("service_name")} required maxLength={60} />
         </label>
-        <label className="space-y-1.5">
+        <label className="*:not-first:mt-1.5">
           <span className="label">Base branch</span>
           <select className="input" value={form.base_branch} onChange={set("base_branch")} required disabled={!options}>
             {(options?.branches ?? [form.base_branch]).map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
         </label>
-        <label className="space-y-1.5">
+        <label className="*:not-first:mt-1.5">
           <span className="label">Deployed URL</span>
           <input className="input" type="url" placeholder="https://" value={form.deployed_url} onChange={set("deployed_url")} required />
         </label>
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className="*:not-first:mt-1.5 sm:col-span-2">
           <span className="label">Workflow check (optional)</span>
           <select className="input" value={form.workflow} onChange={set("workflow")} disabled={!options}>
             <option value="">None</option>

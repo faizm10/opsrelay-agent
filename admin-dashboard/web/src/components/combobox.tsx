@@ -30,7 +30,7 @@ export function Combobox({ id, options, value, onChange, placeholder, searchPlac
           <ChevronsUpDown className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>

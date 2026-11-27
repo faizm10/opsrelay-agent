@@ -77,8 +77,8 @@ export function LearningPanel() {
         </div>
         <p className="mt-2 text-sm text-muted">
           The repair agent has no learning history yet. Train it with{" "}
-          <code className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs text-ink">python -m agents.rl_policy seed</code> then{" "}
-          <code className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs text-ink">train</code> (requires MongoDB).
+          <code className="rounded-sm bg-raised px-1.5 py-0.5 font-mono text-xs text-ink">python -m agents.rl_policy seed</code> then{" "}
+          <code className="rounded-sm bg-raised px-1.5 py-0.5 font-mono text-xs text-ink">train</code> (requires MongoDB).
         </p>
       </section>
     );

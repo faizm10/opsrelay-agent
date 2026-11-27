@@ -11,11 +11,11 @@ export function Toaster(props: ToasterProps) {
       closeButton
       toastOptions={{
         classNames: {
-          toast: "!rounded-xl !border !border-line !bg-surface !text-ink !shadow-lg font-sans text-sm",
-          description: "!text-muted",
-          success: "[&_[data-icon]]:!text-ok",
-          error: "[&_[data-icon]]:!text-crit",
-          closeButton: "!border-line !bg-surface !text-muted",
+          toast: "rounded-xl! border! border-line! bg-surface! text-ink! shadow-lg! font-sans text-sm",
+          description: "text-muted!",
+          success: "**:data-icon:text-ok!",
+          error: "**:data-icon:text-crit!",
+          closeButton: "border-line! bg-surface! text-muted!",
         },
       }}
       {...props}

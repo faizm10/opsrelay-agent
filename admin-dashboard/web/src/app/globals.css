@@ -1,19 +1,71 @@
-@layer reset, astryx-base, astryx-theme;
+/* Tailwind's preflight and the base styles below sit in the reset layer, under Astryx's layers, and its
+   utilities above them, as with Tailwind 3, where preflight was wrapped in reset and utilities were unlayered. */
+@layer reset, astryx-base, astryx-theme, theme, base, components, utilities;
 @import "@astryxdesign/core/reset.css";
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-stone/theme.css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(reset);
+@import "tailwindcss/utilities.css" layer(utilities);
 
-@layer reset {
-  @tailwind base;
+/* Utilities get these values inlined, as in Tailwind 3, and no --color-* variables are emitted: Astryx sets its
+   own --color-accent, and either would override the other. */
+@theme reference inline {
+  --color-page: #f8f8f3;
+  --color-surface: #fffffc;
+  --color-raised: #efefe8;
+  --color-hover: #e6e9dd;
+  --color-line: #daddd2;
+  --color-line-strong: #aab1a3;
+  --color-ink: #202c25;
+  --color-muted: #505e52;
+  --color-faint: #606d60;
+  --color-accent: #225b46;
+  /* Status colors are paired with a label or icon. */
+  --color-ok: #297346;
+  --color-warn: #92600d;
+  --color-crit: #b83c37;
+  --color-nodata: #c4c9bd;
 }
-@tailwind components;
-@tailwind utilities;
+
+@theme {
+  --animate-ping2: ping2 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes ping2 {
+    75%, 100% { transform: scale(2.2); opacity: 0; }
+  }
+  @keyframes rise {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: none; }
+  }
+}
+
+/* next/font sets these on <html> (src/app/layout.tsx). */
+@theme inline {
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-sans: var(--font-geist), system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
 
 :root {
   color-scheme: light;
 }
 
-@layer base {
+@layer reset {
+  /* Tailwind 3's preflight defaults, which Tailwind 4 changed. */
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: #e5e7eb;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  input::placeholder, textarea::placeholder {
+    color: #9ca3af;
+  }
+  select:disabled {
+    opacity: 0.7; /* the browser default, which Tailwind 4's preflight resets to 1 */
+  }
+
   body {
     @apply bg-page font-sans text-[14px] text-ink antialiased;
     min-height: 100vh;
@@ -36,7 +88,7 @@
     @apply rounded-xl border border-line bg-surface;
   }
   .page-title {
-    @apply break-words text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[32px];
+    @apply wrap-break-word text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[32px];
   }
   .section-title {
     @apply text-lg font-semibold leading-tight tracking-tight;

@@ -6,9 +6,9 @@ import { DashboardTheme } from "@/components/dashboard-theme";
 import { Toaster } from "@/components/sonner";
 import "./globals.css";
 
-const display = Instrument_Serif({ weight: "400", subsets: ["latin"], variable: "--font-display", display: "swap" });
-const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
+const display = Instrument_Serif({ weight: "400", subsets: ["latin"], variable: "--font-instrument-serif", display: "swap" });
+const sans = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "OpsRelay Status",

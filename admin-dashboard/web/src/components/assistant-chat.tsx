@@ -107,7 +107,7 @@ export function AssistantChat() {
         )}
         {messages.map((m, n) => (
           <div key={n} className={m.role === "user" ? "flex justify-end" : "flex"}>
-            <p className={`max-w-[85%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 leading-relaxed ${m.role === "user" ? "bg-accent/15 text-ink" : "bg-raised text-ink"}`}>
+            <p className={`max-w-[85%] whitespace-pre-wrap wrap-break-word rounded-lg px-3 py-2 leading-relaxed ${m.role === "user" ? "bg-accent/15 text-ink" : "bg-raised text-ink"}`}>
               {m.content}
             </p>
           </div>
@@ -137,7 +137,7 @@ export function AssistantChat() {
           rows={1}
           maxLength={4000}
           placeholder="Ask a question…"
-          className="max-h-32 min-h-10 flex-1 resize-none rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+          className="max-h-32 min-h-10 flex-1 resize-none rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-hidden"
           aria-label="Your question"
         />
         <button type="submit" disabled={pending || !draft.trim()} className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-page transition disabled:opacity-40" aria-label="Send">

@@ -51,11 +51,11 @@ export function AccountForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       <form onSubmit={submit} className="panel w-full max-w-md space-y-5 p-6 sm:p-10">
         <Logo />
         <h1 className="page-title">{title}</h1>
-        <label className="block space-y-1.5">
+        <label className="block *:not-first:mt-1.5">
           <span className="label">Email</span>
           <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </label>
-        <label className="block space-y-1.5">
+        <label className="block *:not-first:mt-1.5">
           <span className="label">Password</span>
           <input
             className="input" type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)}
