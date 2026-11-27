@@ -36,5 +36,5 @@ jobs:
           cache-dependency-path: agents/requirements.txt
       - run: pip install -r requirements.txt
       - if: vars.OPSRELAY_LLM == 'claude-code'
-        run: npm install -g @anthropic-ai/claude-code@2.1.311
+        run: npm install -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@2.1.311 && claude --version
       - run: python -m agents.diagnose
