@@ -497,6 +497,38 @@ def test_dependabot_alerts_become_one_incident_per_repository(tmp_path, settings
     assert owner.get("/api/v1/repositories").json()["data"][0]["dependabot"]["result"] == "resolved"
 
 
+def test_open_pull_requests_and_issues_become_one_incident_per_repository(tmp_path, settings, clock, monkeypatch):
+    open_items = [{"number": 7, "title": "Bump next from 15 to 16", "user": {"login": "dependabot[bot]"}, "pull_request": {},
+                   "labels": [{"name": "dependencies"}], "html_url": "https://github.com/octo/shop/pull/7"},
+                  {"number": 8, "title": "Checkout is slow", "user": {"login": "octo"}, "labels": []},
+                  {"number": 9, "title": "agent/fix-INC-1", "user": {"login": "octo"}, "pull_request": {}, "draft": True}]
+
+    def github(request: httpx.Request) -> httpx.Response:
+        routes = {"/user": {"login": "octo"}, "/repos/octo/shop": {"full_name": "octo/shop"},
+                  "/repos/octo/shop/branches/main": {"name": "main"}, "/repos/octo/shop/issues": open_items}
+        body = routes.get(request.url.path)
+        return httpx.Response(200, json=body) if body is not None else httpx.Response(404)
+
+    monkeypatch.setenv("OPSRELAY_CRON_SECRET", "s3cret")
+    app = create_app(make_sqlite(tmp_path), settings, clock=clock, github_transport=httpx.MockTransport(github))
+    owner = signed_in(app)
+    owner.put("/api/v1/github", json={"token": "ghp_valid_token_for_tests_000"}).raise_for_status()
+    owner.post("/api/v1/repositories", json={"repo": "octo/shop", "service_name": "Shop", "base_branch": "main",
+                                             "deployed_url": "https://shop.example"}).raise_for_status()
+
+    def scheduled():
+        return TestClient(app).post("/api/v1/cron/check", headers={"Authorization": "Bearer s3cret"}).json()["data"]["backlog"]
+
+    assert scheduled() == {"created": 1}
+    incident = next(i for i in owner.get("/api/v1/incidents").json()["data"] if i["evidence"].get("source") == "backlog")
+    assert incident["title"] == "Shop: 2 open backlog items"  # the draft PR is left out
+    assert [(i["number"], i["kind"]) for i in incident["evidence"]["items"]] == [(7, "pull_request"), (8, "issue")]
+
+    open_items.clear()
+    assert scheduled() == {"resolved": 1}
+    assert owner.get(f"/api/v1/incidents/{incident['id']}").json()["data"]["state"] == "resolved"
+
+
 def test_notifications_post_each_event_once_and_retry_failed_sends(tmp_path, settings, clock, monkeypatch):
     posted, up = [], [False]
 
@@ -620,7 +652,8 @@ def test_failing_workflow_on_the_base_branch_opens_an_incident_until_it_passes(t
     seen = []
 
     def github(request: httpx.Request) -> httpx.Response:
-        seen.append(dict(request.url.params))
+        if request.url.path.endswith("/actions/runs"):
+            seen.append(dict(request.url.params))
         routes = {"/user": {"login": "octo"}, "/repos/octo/shop": {"full_name": "octo/shop"},
                   "/repos/octo/shop/branches/main": {"name": "main"}, "/repos/octo/shop/actions/runs": {"workflow_runs": runs}}
         body = routes.get(request.url.path)

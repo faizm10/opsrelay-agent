@@ -68,3 +68,26 @@ def test_open_incidents_are_diagnosed_once_within_the_workspace_limit(monkeypatc
     own, keys = FakeLLM(), []
     assert diagnose.run(db, llm, str, httpx.MockTransport(github), own_llm=lambda k: keys.append(k) or own) == 1
     assert keys == ["sk-own"] and len(own.prompts) == 1 and len(llm.prompts) == 3
+
+
+def test_backlog_evidence_reads_each_pr_and_only_actions_check_logs():
+    def github(request: httpx.Request) -> httpx.Response:
+        routes = {
+            "/repos/octo/shop/pulls/7": {"title": "Bump next to 16", "user": {"login": "dependabot[bot]"}, "created_at": "2026-11-16",
+                                         "mergeable_state": "clean", "body": "Breaking: drops Node 18", "head": {"sha": "f00"}},
+            "/repos/octo/shop/pulls/7/files": [{"filename": "web/package.json", "patch": '-"next": "15"\n+"next": "16"'},
+                                               {"filename": "web/package-lock.json", "patch": "lock noise"}],
+            "/repos/octo/shop/commits/f00/check-runs": {"check_runs": [
+                {"id": 41, "name": "Vercel", "conclusion": "failure", "app": {"slug": "vercel"}},
+                {"id": 42, "name": "build", "conclusion": "failure", "app": {"slug": "github-actions"}}]},
+            "/repos/octo/shop/issues/8": {"title": "Checkout is slow", "body": "p95 is 9s"},
+        }
+        if request.url.path == "/repos/octo/shop/actions/jobs/42/logs":
+            return httpx.Response(200, text="error TS2882: Cannot find module './globals.css'")
+        body = routes.get(request.url.path)
+        return httpx.Response(200, json=body) if body is not None else httpx.Response(404)
+
+    gh = diagnose.GitHubReader("t", httpx.MockTransport(github))
+    text = "\n".join(diagnose.backlog(gh, "octo/shop", [{"number": 7, "kind": "pull_request"}, {"number": 8, "kind": "issue"}]))
+    assert "Vercel=failure, build=failure" in text and '+"next": "16"' in text and "lock noise" not in text
+    assert "PR #7, check build" in text and "TS2882" in text and "p95 is 9s" in text

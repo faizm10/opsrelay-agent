@@ -1,7 +1,7 @@
 """One open incident per mapped repository and source, listing that source's current problems.
 
-Dependabot alerts, unresolved Sentry issues and a failed Vercel production deploy all work the same
-way: the source reports the full list of what's wrong now, the repository's incident for that source
+Dependabot alerts, unresolved Sentry issues, a failed Vercel production deploy and open pull requests and
+issues all work the same way: the source reports the full list of what's wrong now, the repository's incident for that source
 opens with the first item, is updated as items come and go, and resolves once the list is empty.
 """
 
@@ -14,7 +14,7 @@ from typing import Callable
 from .models import Incident, IncidentEvent
 from .storage.base import Storage
 
-SOURCES = ("dependabot", "sentry", "vercel", "actions")
+SOURCES = ("dependabot", "sentry", "vercel", "actions", "backlog")
 
 
 def key(mapping_id: str, source: str) -> str:

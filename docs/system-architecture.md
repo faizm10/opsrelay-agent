@@ -93,6 +93,14 @@ latest production deployment: `ERROR` opens the repository's Vercel rollup incid
 previous deployment keeps serving), the next `READY` one resolves it, and a deployment still building
 changes nothing.
 
+**Open pull requests and issues.** The scheduled check also reads each mapped repository's open pull
+requests and issues (drafts left out, so the agent's own draft PRs don't count) into one backlog incident
+per repository (`uptime/backlog.py`, the same rollup), resolved once nothing is open. A repository added
+with unmerged version bumps or old issues therefore gets an incident at once, and diagnose mode
+investigates it: for each PR its description, changed files (lockfiles skipped), check results and the
+log of a failing Actions check; for each issue its text. The diagnosis says per item whether to merge,
+change or close it.
+
 **Notifications.** Under **Connectors**, a workspace can add outgoing connectors: Slack and Discord
 incoming webhooks, a generic webhook (JSON signed with `X-OpsRelay-Signature: sha256=<HMAC of the body>`,
 its secret shown once, every request through the private-URL guard) and PagerDuty (Events API v2:
@@ -120,7 +128,7 @@ chosen from `agents/apps.toml`. It then runs the same Atlas-backed stages as a m
 ## Code map
 
 - Monitor and incidents: `admin-dashboard/backend/uptime/worker.py`, `incidents.py`, `probes.py`, `storage/`
-- Alerts and rollups: `admin-dashboard/backend/uptime/alerts.py`, `sentry.py`, `vercel.py`, `dependabot.py`, `rollup.py`
+- Alerts and rollups: `admin-dashboard/backend/uptime/alerts.py`, `sentry.py`, `vercel.py`, `dependabot.py`, `backlog.py`, `rollup.py`
 - Agent intake and stages: `agents/intake.py`, `agents/orchestrator.py`, `agents/mongodb.py`
 - Investigation and repair: `agents/live_repair.py`, `agents/investigator.py`, `agents/patcher.py`, `agents/verifier.py`
 - PR publishing: `agents/github_publisher.py`

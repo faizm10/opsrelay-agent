@@ -72,6 +72,8 @@ function timeline(i: Incident, walk: Walkthrough | null, demo: boolean): Entry[]
 
 type FailedDeploy = { id: string; sha: string | null; deployed_at: string | null; inspector_url: string | null };
 type Diagnosis = { summary: string; likely_cause: string; suggested_fix: string; confidence: "low" | "medium" | "high"; created_at: string };
+type BacklogItem = { number: number; kind: "pull_request" | "issue"; title: string; author: string | null; labels: string[];
+  url: string | null; opened_at: string | null };
 type FailedRun = { id: number; workflow: string; sha: string | null; conclusion: string; url: string | null; at: string | null };
 type SentryIssue = { id: string; short_id: string | null; title: string; culprit: string | null; level: string; url: string | null };
 type DependabotAlert = { number: number; package: string; severity: string; summary: string; manifest: string | null;
@@ -204,11 +206,13 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
         const issues = i.evidence.source === "sentry" ? (i.evidence.issues as SentryIssue[]) : null;
         const deploys = i.evidence.source === "vercel" ? (i.evidence.deployments as FailedDeploy[]) : null;
         const runs = i.evidence.source === "actions" ? (i.evidence.runs as FailedRun[]) : null;
+        const backlog = i.evidence.source === "backlog" ? (i.evidence.items as BacklogItem[]) : null;
         const source = alert ? `Better Stack · ${alert.cause ?? "alert"}`
           : deps ? `Dependabot · ${deps.length} open alert${deps.length === 1 ? "" : "s"}`
           : issues ? `Sentry · ${issues.length} unresolved issue${issues.length === 1 ? "" : "s"}`
           : deploys ? "Vercel · production deploy failed"
           : runs ? `GitHub Actions · ${runs.map((r) => r.workflow).join(", ")}`
+          : backlog ? `GitHub · ${backlog.length} open pull request${backlog.length === 1 ? "" : "s"} and issue${backlog.length === 1 ? "" : "s"}`
           : `Functional check · ${FAILURE_LABELS[i.failure_type ?? ""] ?? i.failure_type ?? "failing"}`;
 
         return (
@@ -284,6 +288,19 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                         <p className="text-xs text-muted">
                           {r.at ? new Date(r.at).toLocaleString() : ""}
                           {r.url?.startsWith("https://") && <> · <a href={r.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">Run logs</a></>}
+                        </p>
+                      </li>
+                    )} />
+                  ) : backlog ? (
+                    <Capped items={backlog} render={(b) => (
+                      <li key={b.number}>
+                        <p className="font-medium text-ink">
+                          {b.url?.startsWith("https://") ? <a href={b.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">#{b.number}</a> : `#${b.number}`}
+                          {" "}{b.title}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {b.kind === "pull_request" ? "Pull request" : "Issue"}{b.author ? ` by ${b.author}` : ""}
+                          {b.opened_at ? ` · opened ${new Date(b.opened_at).toLocaleDateString()}` : ""}{b.labels.length ? ` · ${b.labels.join(", ")}` : ""}
                         </p>
                       </li>
                     )} />
