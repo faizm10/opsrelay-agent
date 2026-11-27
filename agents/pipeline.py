@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 from .contracts import CandidateAttempt, RepairRequest, RepairResult, load_app_config
 from .investigator import investigate, parse_failing_tests
-from .llm import OpenAIStructuredLLM, StructuredLLM
+from .llm import StructuredLLM, default_llm
 from .patcher import new_file_diff, propose_patches
 from .verifier import VerificationError, VerificationSession
 
@@ -54,7 +54,7 @@ def repair_ci_failure(request: RepairRequest, llm: StructuredLLM | None = None) 
             if not baseline.reproduced:
                 return done("needs_review", "baseline did not reproduce the CI failure", baseline=baseline.runs)
 
-            llm = llm or OpenAIStructuredLLM()
+            llm = llm or default_llm()
             diagnosis = investigate(request, llm, app, reproduction=baseline.runs[0].output_tail,
                                     require_failing_tests=app.kind == "python")
             if diagnosis.outcome == "needs_review":

@@ -97,9 +97,13 @@ changes nothing.
 requests and issues (drafts left out, so the agent's own draft PRs don't count) into one backlog incident
 per repository (`uptime/backlog.py`, the same rollup), resolved once nothing is open. A repository added
 with unmerged version bumps or old issues therefore gets an incident at once, and diagnose mode
-investigates it: for each PR its description, changed files (lockfiles skipped), check results and the
-log of a failing Actions check; for each issue its text. The diagnosis says per item whether to merge,
-change or close it.
+investigates it. Facts the dashboard computes come first and are marked as reliable: mergeable state,
+age, major or minor upgrade, changed files that no longer exist on the base branch, and checks that
+fail on the base branch too. Then, as untrusted data, the PR's description, its diff (lockfiles
+skipped), its check runs and commit statuses, and the error lines of a failing Actions check. For an
+issue: its text, comments and the PRs and commits that mention it. The model gives every item it was
+shown one verdict (merge, change or close, with the reason), and the incident page shows the verdict
+next to each item.
 
 **Notifications.** Under **Connectors**, a workspace can add outgoing connectors: Slack and Discord
 incoming webhooks, a generic webhook (JSON signed with `X-OpsRelay-Signature: sha256=<HMAC of the body>`,

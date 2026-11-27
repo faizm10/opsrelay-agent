@@ -184,6 +184,8 @@ uv venv --python 3.12 agents/.venv            # or: python3.12 -m venv agents/.v
 uv pip install --python agents/.venv/bin/python -r agents/requirements.txt
 export OPENAI_API_KEY=...                     # required for live model calls
 export OPENAI_MODEL=gpt-4.1-mini              # optional, this is the default
+# or, with no API key, your Claude Pro/Max subscription (`claude login` first; your own repositories only):
+export OPSRELAY_LLM=claude-code CLAUDE_MODEL=sonnet
 ```
 
 ## Tests
