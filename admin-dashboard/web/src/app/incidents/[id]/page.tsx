@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import { ArrowLeft, ArrowUpRight, GitPullRequest } from "lucide-react";
 import { toast } from "sonner";
-import { Badge, ErrorPanel, Shell, Skeleton, StatusText } from "@/components/ui";
+import { Badge, ErrorPanel, Shell, Skeleton, StatusText, type Tone } from "@/components/ui";
 import { type Incident, type Walkthrough, isDemoIncident, send, usePoll } from "@/lib/api";
 import { FAILURE_LABELS, clock, duration, useNow } from "@/lib/format";
 import { agentRun, healthAndProgress, phase } from "@/lib/phase";
@@ -71,7 +71,12 @@ function timeline(i: Incident, walk: Walkthrough | null, demo: boolean): Entry[]
 }
 
 type FailedDeploy = { id: string; sha: string | null; deployed_at: string | null; inspector_url: string | null };
-type Diagnosis = { summary: string; likely_cause: string; suggested_fix: string; confidence: "low" | "medium" | "high"; created_at: string };
+type Verdict = { number: number; verdict: "merge" | "change" | "close"; reason: string };
+type Diagnosis = { summary: string; likely_cause: string; suggested_fix: string; confidence: "low" | "medium" | "high"; created_at: string;
+  items?: Verdict[] };
+const VERDICT_TONE: Record<Verdict["verdict"], Tone> = { merge: "ok", change: "warn", close: "neutral" };
+type BacklogItem = { number: number; kind: "pull_request" | "issue"; title: string; author: string | null; labels: string[];
+  url: string | null; opened_at: string | null };
 type FailedRun = { id: number; workflow: string; sha: string | null; conclusion: string; url: string | null; at: string | null };
 type SentryIssue = { id: string; short_id: string | null; title: string; culprit: string | null; level: string; url: string | null };
 type DependabotAlert = { number: number; package: string; severity: string; summary: string; manifest: string | null;
@@ -204,11 +209,13 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
         const issues = i.evidence.source === "sentry" ? (i.evidence.issues as SentryIssue[]) : null;
         const deploys = i.evidence.source === "vercel" ? (i.evidence.deployments as FailedDeploy[]) : null;
         const runs = i.evidence.source === "actions" ? (i.evidence.runs as FailedRun[]) : null;
+        const backlog = i.evidence.source === "backlog" ? (i.evidence.items as BacklogItem[]) : null;
         const source = alert ? `Better Stack · ${alert.cause ?? "alert"}`
           : deps ? `Dependabot · ${deps.length} open alert${deps.length === 1 ? "" : "s"}`
           : issues ? `Sentry · ${issues.length} unresolved issue${issues.length === 1 ? "" : "s"}`
           : deploys ? "Vercel · production deploy failed"
           : runs ? `GitHub Actions · ${runs.map((r) => r.workflow).join(", ")}`
+          : backlog ? `GitHub · ${backlog.length} open pull request${backlog.length === 1 ? "" : "s"} and issue${backlog.length === 1 ? "" : "s"}`
           : `Functional check · ${FAILURE_LABELS[i.failure_type ?? ""] ?? i.failure_type ?? "failing"}`;
 
         return (
@@ -287,6 +294,24 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                         </p>
                       </li>
                     )} />
+                  ) : backlog ? (
+                    <Capped items={backlog} render={(b) => {
+                      const v = diagnosis.data?.items?.find((x) => x.number === b.number);
+                      return (
+                      <li key={b.number}>
+                        <p className="font-medium text-ink">
+                          {v && <><Badge tone={VERDICT_TONE[v.verdict]}>{v.verdict}</Badge>{" "}</>}
+                          {b.url?.startsWith("https://") ? <a href={b.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">#{b.number}</a> : `#${b.number}`}
+                          {" "}{b.title}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {b.kind === "pull_request" ? "Pull request" : "Issue"}{b.author ? ` by ${b.author}` : ""}
+                          {b.opened_at ? ` · opened ${new Date(b.opened_at).toLocaleDateString()}` : ""}{b.labels.length ? ` · ${b.labels.join(", ")}` : ""}
+                        </p>
+                        {v && <p className="text-muted">{v.reason}</p>}
+                      </li>
+                      );
+                    }} />
                   ) : handoff.data?.probe_failures.length ? (
                     <ul className="space-y-3">
                       {handoff.data.probe_failures.map((f) => {
@@ -331,6 +356,7 @@ export default function IncidentPage({ params }: { params: Promise<{ id: string 
                 aside={run ? RUN_STATUS[run.status] ?? run.status : diagnosis.data ? `${diagnosis.data.confidence} confidence · ${clock(diagnosis.data.created_at, true)}` : undefined}>
                 {diagnosis.data && (
                   <dl className="divide-y divide-line">
+                    {diagnosis.data.items && <Field label="Verdicts">{diagnosis.data.summary} Each item's verdict is listed under What's wrong.</Field>}
                     <Field label="Likely cause"><span className="whitespace-pre-line">{diagnosis.data.likely_cause}</span></Field>
                     <Field label="Suggested fix"><span className="whitespace-pre-line">{diagnosis.data.suggested_fix}</span></Field>
                   </dl>

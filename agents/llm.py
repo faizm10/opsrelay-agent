@@ -1,8 +1,11 @@
-"""Structured LLM calls via LangChain + OpenAI, behind a small injectable protocol."""
+"""Structured LLM calls via LangChain + OpenAI, or a Claude subscription, behind a small injectable protocol."""
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import tempfile
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
@@ -37,6 +40,36 @@ class OpenAIStructuredLLM:
 
         runnable = self._chat.with_structured_output(schema, method="json_schema", strict=True)
         return runnable.invoke([SystemMessage(content=system), HumanMessage(content=user)])
+
+
+class ClaudeCodeLLM:
+    """A Claude Pro or Max subscription through the Claude Code CLI, signed in with `claude login` (or
+    CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token` on a server). Only for a deployment that works on its
+    owner's own repositories: Anthropic doesn't allow serving other people from a subscription. Every tool
+    is off, so text in the evidence can't make it run or read anything."""
+
+    def __init__(self, model: str | None = None, timeout: float = 600.0):
+        self.model, self.timeout = model or os.environ.get("CLAUDE_MODEL", "sonnet"), timeout
+
+    def generate(self, schema: type[T], system: str, user: str) -> T:
+        with tempfile.TemporaryDirectory() as cwd:  # no project instructions or settings to pick up
+            out = subprocess.run(
+                ["claude", "-p", "--output-format", "json", "--tools", "", "--strict-mcp-config", "--setting-sources", "",
+                 "--no-session-persistence", "--model", self.model, "--system-prompt", system,
+                 "--json-schema", json.dumps(schema.model_json_schema())],
+                input=user, capture_output=True, text=True, timeout=self.timeout, cwd=cwd)
+        try:
+            res = json.loads(out.stdout)
+        except json.JSONDecodeError:
+            res = {"is_error": True, "result": out.stderr[-500:]}
+        if out.returncode or res.get("is_error") or not res.get("structured_output"):
+            raise RuntimeError(f"claude -p failed: {res.get('result') or out.stderr[-500:]}")
+        return schema.model_validate(res["structured_output"])
+
+
+def default_llm() -> StructuredLLM:
+    """OPSRELAY_LLM=claude-code uses a Claude subscription; otherwise OpenAI with OPENAI_API_KEY."""
+    return ClaudeCodeLLM() if os.environ.get("OPSRELAY_LLM") == "claude-code" else OpenAIStructuredLLM()
 
 
 def numbered(content: str) -> str:

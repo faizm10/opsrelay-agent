@@ -35,7 +35,7 @@ from .contracts import (
 )
 from .investigator import investigate
 from .live_check import ServiceConfig, run_live_check
-from .llm import OpenAIStructuredLLM, StructuredLLM
+from .llm import StructuredLLM, default_llm
 from .pipeline import repair_ci_failure
 from .regression import write_regression_test
 from .verifier import VerificationError, VerificationSession
@@ -125,7 +125,7 @@ def diagnose_live_failure(incident: LiveIncident, llm: StructuredLLM | None = No
                       "unknown", next_diagnostic="Provide the deployed commit SHA and a repo clone so the failure "
                                                  "can be compared with recent changes and reproduced.")
 
-    llm = llm or OpenAIStructuredLLM()
+    llm = llm or default_llm()
     request = _request_for(incident, failed_test_logs="")
     diagnosis = investigate(request, llm, app, require_failing_tests=False)
     if diagnosis.outcome == "needs_review":

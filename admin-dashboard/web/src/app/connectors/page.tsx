@@ -82,7 +82,7 @@ function GitHubPanel({ connection, onChange }: { connection: Connection; onChang
           <p className="text-sm text-muted">
             Paste a GitHub token. Only the repositories it can access can be mapped. A{" "}
             <a className="text-accent hover:underline" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">fine-grained token</a>{" "}
-            with Contents, Pull requests, Actions and Dependabot alerts (read) on the chosen repositories is enough. It stays on the server.
+            with Contents, Issues, Pull requests, Actions, Checks and Dependabot alerts (read) on the chosen repositories is enough. It stays on the server.
           </p>
           <div className="flex flex-wrap gap-2">
             <label className="min-w-0 flex-1">

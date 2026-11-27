@@ -93,6 +93,18 @@ latest production deployment: `ERROR` opens the repository's Vercel rollup incid
 previous deployment keeps serving), the next `READY` one resolves it, and a deployment still building
 changes nothing.
 
+**Open pull requests and issues.** The scheduled check also reads each mapped repository's open pull
+requests and issues (drafts left out, so the agent's own draft PRs don't count) into one backlog incident
+per repository (`uptime/backlog.py`, the same rollup), resolved once nothing is open. A repository added
+with unmerged version bumps or old issues therefore gets an incident at once, and diagnose mode
+investigates it. Facts the dashboard computes come first and are marked as reliable: mergeable state,
+age, major or minor upgrade, changed files that no longer exist on the base branch, and checks that
+fail on the base branch too. Then, as untrusted data, the PR's description, its diff (lockfiles
+skipped), its check runs and commit statuses, and the error lines of a failing Actions check. For an
+issue: its text, comments and the PRs and commits that mention it. The model gives every item it was
+shown one verdict (merge, change or close, with the reason), and the incident page shows the verdict
+next to each item.
+
 **Notifications.** Under **Connectors**, a workspace can add outgoing connectors: Slack and Discord
 incoming webhooks, a generic webhook (JSON signed with `X-OpsRelay-Signature: sha256=<HMAC of the body>`,
 its secret shown once, every request through the private-URL guard) and PagerDuty (Events API v2:
@@ -120,7 +132,7 @@ chosen from `agents/apps.toml`. It then runs the same Atlas-backed stages as a m
 ## Code map
 
 - Monitor and incidents: `admin-dashboard/backend/uptime/worker.py`, `incidents.py`, `probes.py`, `storage/`
-- Alerts and rollups: `admin-dashboard/backend/uptime/alerts.py`, `sentry.py`, `vercel.py`, `dependabot.py`, `rollup.py`
+- Alerts and rollups: `admin-dashboard/backend/uptime/alerts.py`, `sentry.py`, `vercel.py`, `dependabot.py`, `backlog.py`, `rollup.py`
 - Agent intake and stages: `agents/intake.py`, `agents/orchestrator.py`, `agents/mongodb.py`
 - Investigation and repair: `agents/live_repair.py`, `agents/investigator.py`, `agents/patcher.py`, `agents/verifier.py`
 - PR publishing: `agents/github_publisher.py`

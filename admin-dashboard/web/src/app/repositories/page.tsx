@@ -14,6 +14,7 @@ type Connection = { connected: boolean; login?: string };
 type Mapping = { service_id: string; service_name: string; repo: string; base_branch: string; deployed_url: string; workflow: string | null; betterstack_monitor_id: string | null;
   dependabot?: { checked_at: string; result: string; reason?: string; open_alerts?: number } | null; sentry_project: string | null;
   actions?: { result: string; reason?: string; failing?: number } | null;
+  backlog?: { result: string; reason?: string; open?: number } | null;
   vercel_project: string | null; vercel?: { result: string; reason?: string; state?: string | null; sha?: string | null } | null;
   agent: { enabled: boolean; mode: AgentMode; app: string | null } };
 type AgentConfig = { worker_repo: string | null; apps: string[] };
@@ -71,6 +72,11 @@ export default function Repositories() {
                         {!m.dependabot ? "Dependabot: not checked yet"
                           : m.dependabot.result === "skipped" ? "Dependabot: can't read alerts (token needs Dependabot alerts: read)"
                           : `Dependabot: ${m.dependabot.open_alerts} open alert${m.dependabot.open_alerts === 1 ? "" : "s"}`}
+                      </span>
+                      <span className={`text-xs ${m.backlog?.result === "skipped" ? "text-warn" : "text-faint"}`} title={m.backlog?.reason}>
+                        {!m.backlog ? "PRs and issues: not checked yet"
+                          : m.backlog.result === "skipped" ? "PRs and issues: can't read them (token needs Issues and Pull requests: read)"
+                          : `PRs and issues: ${m.backlog.open} open`}
                       </span>
                       <MappingField mapping={m} label="Better Stack monitor" saved={m.betterstack_monitor_id} path="betterstack" field="monitor_id"
                         pattern="[0-9]*" placeholder="ID" onSaved={mapped.reload} />

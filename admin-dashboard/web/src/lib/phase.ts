@@ -39,7 +39,8 @@ export function healthAndProgress(i: Incident): { health: string; progress: stri
     : i.evidence.source === "dependabot" ? "Dependencies"
     : i.evidence.source === "sentry" ? "Sentry"
     : i.evidence.source === "vercel" ? "Production deploy"
-    : i.evidence.source === "actions" ? "CI" : FUNCTIONAL;
+    : i.evidence.source === "actions" ? "CI"
+    : i.evidence.source === "backlog" ? "Backlog" : FUNCTIONAL;
   const health = `${source} ${STATUS_META[i.service_health].label.toLowerCase()}`;
   const progress = i.state === "resolved" ? "Incident resolved" : phase(i).label;
   return { health, progress };

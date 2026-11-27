@@ -68,3 +68,60 @@ def test_open_incidents_are_diagnosed_once_within_the_workspace_limit(monkeypatc
     own, keys = FakeLLM(), []
     assert diagnose.run(db, llm, str, httpx.MockTransport(github), own_llm=lambda k: keys.append(k) or own) == 1
     assert keys == ["sk-own"] and len(own.prompts) == 1 and len(llm.prompts) == 3
+
+
+def test_backlog_gets_one_verdict_per_item_from_facts_checks_and_errors(monkeypatch):
+    monkeypatch.setenv("OPSRELAY_DIAGNOSES_PER_DAY", "10")
+    db = mongomock.MongoClient(tz_aware=True)["opsrelay_test"]
+    db[diagnose.REPOS].insert_one({"_id": "w1:shop", "workspace_id": "w1", "repo": "octo/shop", "base_branch": "main",
+                                   "agent": {"enabled": True, "mode": "diagnose"}})
+    db[diagnose.GITHUB].insert_one({"_id": "w1", "token": "ghp_plain"})
+    items = [{"number": 7, "kind": "pull_request"}, {"number": 8, "kind": "pull_request"}, {"number": 9, "kind": "issue"}]
+    db[diagnose.UPTIME_INCIDENTS].insert_one({"_id": "BAC-1", "service_id": "w1:shop#backlog", "state": "open", "summary": "3 open",
+                                              "evidence": {"source": "backlog", "items": items}})
+    pr = {"user": {"login": "dependabot[bot]"}, "created_at": "2026-11-16T00:00:00Z", "mergeable_state": "clean"}
+
+    def github(request: httpx.Request) -> httpx.Response:
+        routes = {
+            "/repos/octo/shop/git/trees/main": {"tree": [{"path": "web/package.json"}, {"path": "web/package-lock.json"}]},
+            "/repos/octo/shop/commits/main/check-runs": {"check_runs": []},
+            "/repos/octo/shop/commits/main/status": {"statuses": []},
+            "/repos/octo/shop/pulls/7": {**pr, "title": "Bump next from 15.5.0 to 16.1.0 in /web", "body": "Breaking: drops Node 18",
+                                         "head": {"sha": "a7"}},
+            "/repos/octo/shop/pulls/7/files": [{"filename": "web/package.json", "status": "modified", "patch": '+"next": "16"'},
+                                               {"filename": "web/package-lock.json", "status": "modified", "patch": "lock noise"}],
+            "/repos/octo/shop/commits/a7/check-runs": {"check_runs": [
+                {"id": 42, "name": "build", "conclusion": "failure", "app": {"slug": "github-actions"}},
+                {"id": 43, "name": "build", "conclusion": "failure", "app": {"slug": "github-actions"}}]},
+            "/repos/octo/shop/commits/a7/status": {"statuses": [{"context": "Vercel", "state": "error"}]},
+            "/repos/octo/shop/pulls/8": {**pr, "mergeable_state": "dirty", "title": "Bump flask from 3.0.0 to 3.1.0 in /api",
+                                         "head": {"sha": "a8"}},
+            "/repos/octo/shop/pulls/8/files": [{"filename": "api/requirements.txt", "status": "modified"}],
+            "/repos/octo/shop/commits/a8/check-runs": {"check_runs": []},
+            "/repos/octo/shop/commits/a8/status": {"statuses": []},
+            "/repos/octo/shop/issues/9": {"title": "Checkout is slow", "created_at": "2026-11-20T00:00:00Z", "body": "p95 is 9s"},
+            "/repos/octo/shop/issues/9/timeline": [{"event": "cross-referenced", "source": {"issue": {
+                "number": 11, "title": "Cache prices", "state": "closed", "pull_request": {"merged_at": "2026-11-21"}}}}],
+            "/repos/octo/shop/commits": [],
+        }
+        if request.url.path == "/repos/octo/shop/actions/jobs/42/logs":
+            return httpx.Response(200, text="2026-11-16T22:21:15.4Z npm run build\n2026-11-16T22:21:15.4Z ##[error]TS2882 './globals.css'\n"
+                                            "2026-11-16T22:21:15.5Z Post job cleanup.")
+        body = routes.get(request.url.path)
+        return httpx.Response(200, json=body) if body is not None else httpx.Response(404)
+
+    class Triage(FakeLLM):
+        def generate(self, schema, system, user):
+            self.prompts.append(user)
+            return schema(summary="1 merge", likely_cause="x", suggested_fix="y", confidence="high", items=[
+                {"number": 7, "verdict": "change", "reason": "build fails"}, {"number": 99, "verdict": "close", "reason": "made up"}])
+
+    llm = Triage()
+    assert diagnose.run(db, llm, str, httpx.MockTransport(github)) == 1
+    text = llm.prompts[0]
+    assert "PR #7 facts: ready to merge; open" in text and "major upgrade" in text and "lock noise" not in text
+    assert "checks: build=failure, Vercel=failure" in text  # one entry per check, statuses included
+    assert "##[error]TS2882" in text and "Post job cleanup" not in text and "22:21:15" not in text
+    assert 'PR #8 facts: merge conflict with the base branch' in text and 'no longer exist on the base branch, e.g. "api/requirements.txt"' in text
+    assert "mentioned by #11 Cache prices (merged)" in text
+    assert [v["number"] for v in db[diagnose.DIAGNOSES].find_one({"_id": "BAC-1"})["items"]] == [7]  # #99 wasn't shown
